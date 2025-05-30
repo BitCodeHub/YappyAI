@@ -41,6 +41,11 @@ except ImportError:
 
 # Database configuration
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./yappy.db")
+
+# Fix for Render PostgreSQL URLs (they use postgres:// but we need postgresql://)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 database = Database(DATABASE_URL)
 metadata = MetaData()
 
@@ -74,20 +79,27 @@ engine = sqlalchemy.create_engine(DATABASE_URL)
 async def lifespan(app: FastAPI):
     # Startup - Connect to database
     print("🐕 Woof! Yappy AI is starting up...")
-    await database.connect()
+    print(f"Database URL: {DATABASE_URL[:20]}...")
     
-    # Create tables if they don't exist
     try:
+        await database.connect()
+        print("✅ Database connected successfully")
+        
+        # Create tables if they don't exist
         metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
     except Exception as e:
-        print(f"⚠️ Database setup warning: {e}")
+        print(f"❌ Database connection failed: {e}")
+        print("⚠️ Will continue with limited functionality")
     
     yield
     
     # Shutdown
-    await database.disconnect()
-    print("🐕 Yappy AI is shutting down... Goodbye!")
+    try:
+        await database.disconnect()
+        print("🐕 Yappy AI is shutting down... Goodbye!")
+    except:
+        pass
 
 # Initialize FastAPI
 app = FastAPI(
