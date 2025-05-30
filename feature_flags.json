@@ -1,0 +1,33 @@
+{
+  "voice_input": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "description": "Voice input functionality"
+  },
+  "dark_theme": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "description": "Dark theme toggle"
+  },
+  "conversation_history": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "description": "Chat conversation history"
+  },
+  "file_upload": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "description": "File upload capabilities"
+  },
+  "advanced_animations": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "description": "Enhanced Yappy character animations"
+  },
+  "beta_features": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "description": "Experimental beta features",
+    "allowed_users": []
+  }
+}

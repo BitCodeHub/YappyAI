@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chart Display Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .chart { margin: 20px 0; text-align: center; }
+        .chart img { 
+            max-width: 100%; 
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .content { white-space: pre-wrap; background: #f5f5f5; padding: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Chart Display Test</h1>
+    <button onclick="fetchAndDisplay()">Fetch Latest Response</button>
+    <div id="result"></div>
+    
+    <script>
+        async function fetchAndDisplay() {
+            try {
+                const response = await fetch('http://localhost:8000/latest_answer');
+                const data = await response.json();
+                const content = data.answer || '';
+                
+                document.getElementById('result').innerHTML = '';
+                
+                // Show raw content
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'content';
+                contentDiv.textContent = content.substring(0, 1000) + '...';
+                document.getElementById('result').appendChild(contentDiv);
+                
+                // Extract and display images
+                const base64ImageRegex = /!\[([^\]]*)\]\((data:image\/png;base64,[^)]+)\)/g;
+                let match;
+                let imageCount = 0;
+                
+                while ((match = base64ImageRegex.exec(content)) !== null) {
+                    imageCount++;
+                    const chartDiv = document.createElement('div');
+                    chartDiv.className = 'chart';
+                    
+                    const img = document.createElement('img');
+                    img.src = match[2];
+                    img.alt = match[1] || 'Chart';
+                    
+                    const caption = document.createElement('p');
+                    caption.textContent = `Chart ${imageCount}: ${match[1]}`;
+                    
+                    chartDiv.appendChild(img);
+                    chartDiv.appendChild(caption);
+                    document.getElementById('result').appendChild(chartDiv);
+                }
+                
+                if (imageCount === 0) {
+                    const noImagesDiv = document.createElement('div');
+                    noImagesDiv.textContent = 'No base64 images found in response';
+                    noImagesDiv.style.color = 'red';
+                    document.getElementById('result').appendChild(noImagesDiv);
+                } else {
+                    const successDiv = document.createElement('div');
+                    successDiv.textContent = `Found ${imageCount} chart(s)!`;
+                    successDiv.style.color = 'green';
+                    document.getElementById('result').appendChild(successDiv);
+                }
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

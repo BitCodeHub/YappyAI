@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        input, button {
+            display: block;
+            margin: 10px 0;
+            padding: 8px;
+            width: 100%;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .token { 
+            background: #f0f0f0; 
+            padding: 10px; 
+            word-break: break-all;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AgenticSeek Login Test</h1>
+    
+    <h2>Test Credentials:</h2>
+    <ul>
+        <li>Username: <code>demo_user</code></li>
+        <li>Password: <code>demo123</code></li>
+    </ul>
+    
+    <form id="loginForm">
+        <input type="text" id="username" placeholder="Username" value="demo_user">
+        <input type="password" id="password" placeholder="Password" value="demo123">
+        <button type="submit">Login</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <h2>Test Protected Endpoint:</h2>
+    <button id="testAuth" disabled>Test /is_active</button>
+    <div id="authResult"></div>
+
+    <script>
+        let token = null;
+        
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const response = await fetch('http://localhost:8000/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    token = data.access_token;
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Login successful!</p>
+                        <div class="token">
+                            <strong>Token:</strong><br>
+                            ${token}
+                        </div>
+                        <p>Token expires in: ${data.expires_in} seconds</p>
+                    `;
+                    document.getElementById('testAuth').disabled = false;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Login failed: ${data.detail || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        };
+        
+        document.getElementById('testAuth').onclick = async () => {
+            const authResultDiv = document.getElementById('authResult');
+            
+            try {
+                const response = await fetch('http://localhost:8000/is_active', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authResultDiv.innerHTML = `<p class="success">✅ Authenticated request successful: ${JSON.stringify(data)}</p>`;
+                } else {
+                    authResultDiv.innerHTML = `<p class="error">❌ Auth failed: ${response.status}</p>`;
+                }
+            } catch (error) {
+                authResultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html>

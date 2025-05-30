@@ -1,0 +1,35 @@
+INSTALLATION INSTRUCTIONS FOR PDF SUPPORT
+========================================
+
+To install the dependencies, open your terminal and run ONE of these commands:
+
+Option 1 - Using pip directly:
+------------------------------
+cd /Users/jimmylam/Downloads/agenticSeek-main
+pip install -r requirements.txt
+
+
+Option 2 - Using the Python installer script:
+--------------------------------------------
+cd /Users/jimmylam/Downloads/agenticSeek-main
+python install_dependencies.py
+
+
+Option 3 - Using the shell script:
+----------------------------------
+cd /Users/jimmylam/Downloads/agenticSeek-main
+chmod +x install_dependencies.sh
+./install_dependencies.sh
+
+
+Option 4 - Install key packages manually:
+----------------------------------------
+pip install pypdf matplotlib seaborn pandas google-generativeai
+
+
+After installation completes, start the API:
+------------------------------------------
+cd /Users/jimmylam/Downloads/agenticSeek-main
+python api_clean.py
+
+The API will start on http://localhost:8000
