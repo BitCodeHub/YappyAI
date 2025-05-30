@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
@@ -108,7 +108,7 @@ security = HTTPBearer(auto_error=False)
 class UserSignup(BaseModel):
     username: str
     password: str
-    email: EmailStr
+    email: str
 
 class UserLogin(BaseModel):
     username: str
