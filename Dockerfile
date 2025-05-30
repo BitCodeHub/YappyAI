@@ -6,11 +6,14 @@ WORKDIR /app
 
 # Copy only essential files first
 COPY requirements_minimal.txt .
-COPY api_minimal.py .
 COPY app.py .
+COPY entrypoint.sh .
 
 # Install minimal dependencies
 RUN pip install --no-cache-dir -r requirements_minimal.txt
+
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
@@ -18,5 +21,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
-# Use shell form to allow variable expansion
-CMD ["/bin/sh", "-c", "python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run Python directly - app.py handles PORT internally
+CMD ["python", "app.py"]
