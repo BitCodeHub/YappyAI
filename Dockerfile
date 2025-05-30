@@ -20,7 +20,8 @@ RUN pip install --no-cache-dir -r requirements_minimal.txt && \
     pip install openai anthropic google-generativeai groq
 
 # Copy application files
-COPY api_deploy.py app.py
+COPY api_deploy.py .
+COPY app.py .
 COPY sources sources/
 COPY prompts prompts/
 COPY config.ini .
