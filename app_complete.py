@@ -98,8 +98,13 @@ app.add_middleware(
 )
 
 # Mount static files if they exist
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    print(f"Mounting static directory: {static_dir}")
+    print(f"Static files: {os.listdir(static_dir)}")
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+else:
+    print(f"Warning: Static directory not found at {static_dir}")
 
 # Security
 security = HTTPBearer(auto_error=False)
@@ -264,11 +269,13 @@ llm_handler = LLMHandler()
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the Yappy chat interface directly"""
-    yappy_path = os.path.join("static", "yappy.html")
+    yappy_path = os.path.join(static_dir, "yappy.html")
     if os.path.exists(yappy_path):
+        print(f"Serving yappy.html from {yappy_path}")
         return FileResponse(yappy_path)
     
     # Fallback to the landing page if yappy.html doesn't exist
+    print(f"yappy.html not found at {yappy_path}, serving landing page")
     return await root_landing()
 
 @app.get("/landing", response_class=HTMLResponse)

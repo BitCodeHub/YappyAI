@@ -12,8 +12,9 @@ RUN pip install --no-cache-dir -r requirements_minimal.txt && \
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p static .screenshots .logs
+# Create necessary directories and ensure static files are present
+RUN mkdir -p .screenshots .logs && \
+    ls -la static/ || echo "Static directory not found"
 
 # Environment
 ENV PYTHONUNBUFFERED=1
