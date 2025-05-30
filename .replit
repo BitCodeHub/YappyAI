@@ -1,0 +1,13 @@
+run = "python app.py"
+hidden = [".pythonlibs", ".cache", "__pycache__"]
+
+[nix]
+channel = "stable-23_05"
+
+[deployment]
+run = ["python", "app.py"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
