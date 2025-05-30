@@ -1597,30 +1597,40 @@
                     console.log('Response:', res.data);
                     
                     // Add the AI response to messages
-                    if (res.data && res.data.response) {
-                        setMessages((prev) => [
-                            ...prev,
-                            {
-                                type: 'agent',
-                                content: res.data.response,
-                                agentName: 'Yappy',
-                                status: 'Completed',
-                                model: res.data.model_used || llmModel,
-                                tokens: res.data.tokens_used || 0
-                            }
-                        ]);
-                        scrollToBottom();
-                    } else {
-                        // Fallback if response format is unexpected
-                        console.error('Unexpected response format:', res.data);
-                        setMessages((prev) => [
-                            ...prev,
-                            {
-                                type: 'error',
-                                content: 'Received response but could not parse it properly.',
-                            }
-                        ]);
-                        scrollToBottom();
+                    try {
+                        if (res.data && res.data.response) {
+                            setMessages((prev) => {
+                                if (!prev) return [];
+                                return [
+                                    ...prev,
+                                    {
+                                        type: 'agent',
+                                        content: res.data.response,
+                                        agentName: 'Yappy',
+                                        status: 'Completed',
+                                        model: res.data.model_used || llmModel,
+                                        tokens: res.data.tokens_used || 0
+                                    }
+                                ];
+                            });
+                            setTimeout(() => scrollToBottom(), 100);
+                        } else {
+                            // Fallback if response format is unexpected
+                            console.error('Unexpected response format:', res.data);
+                            setMessages((prev) => {
+                                if (!prev) return [];
+                                return [
+                                    ...prev,
+                                    {
+                                        type: 'error',
+                                        content: 'Received response but could not parse it properly.',
+                                    }
+                                ];
+                            });
+                            setTimeout(() => scrollToBottom(), 100);
+                        }
+                    } catch (stateError) {
+                        console.error('State update error:', stateError);
                     }
                     
                     // Clear the file after successful send
@@ -1636,16 +1646,27 @@
                         errorMessage = `Error: ${err.message}`;
                     }
                     
-                    setError('Failed to process query.');
-                    setMessages((prev) => [
-                        ...prev,
-                        { type: 'error', content: errorMessage },
-                    ]);
-                    scrollToBottom();
+                    try {
+                        setError('Failed to process query.');
+                        setMessages((prev) => {
+                            if (!prev) return [];
+                            return [
+                                ...prev,
+                                { type: 'error', content: errorMessage },
+                            ];
+                        });
+                        setTimeout(() => scrollToBottom(), 100);
+                    } catch (stateError) {
+                        console.error('Error state update failed:', stateError);
+                    }
                 } finally {
                     console.log('Query completed');
-                    setIsLoading(false);
-                    setQuery('');
+                    try {
+                        setIsLoading(false);
+                        setQuery('');
+                    } catch (finalError) {
+                        console.error('Finally block error:', finalError);
+                    }
                 }
             };
 
