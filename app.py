@@ -1,9 +1,19 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 import uvicorn
 
-app = FastAPI()
+app = FastAPI(title="Yappy AI", version="1.0.0")
+
+class ChatRequest(BaseModel):
+    message: str
+    api_key: Optional[str] = None
+
+class ChatResponse(BaseModel):
+    response: str
+    timestamp: str
 
 @app.get("/")
 def read_root():
@@ -27,6 +37,20 @@ def version():
         "update": "Yappy welcome message",
         "deployed_at": datetime.now().isoformat()
     }
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """Chat with Yappy AI"""
+    if not request.message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    
+    # For now, echo back with Yappy personality
+    response_text = f"Woof! 🐕 You said: '{request.message}'. I'm Yappy, your friendly AI assistant! Once we connect AI providers, I'll be even more helpful!"
+    
+    return ChatResponse(
+        response=response_text,
+        timestamp=datetime.now().isoformat()
+    )
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
