@@ -10,8 +10,9 @@ RUN pip install --no-cache-dir -r requirements_complete.txt
 # Copy application code
 COPY . .
 
-# Ensure static directory exists with files
-RUN mkdir -p .screenshots .logs && \
+# Create necessary directories
+RUN mkdir -p data .screenshots .logs && \
+    chmod 777 data && \
     echo "Contents of /app:" && ls -la /app/ && \
     echo "Contents of /app/static:" && ls -la /app/static/ || echo "Static directory not found"
 
@@ -23,5 +24,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Start command - use complete version
-CMD ["sh", "-c", "python app_complete.py"]
+# Start command - use database version
+CMD ["sh", "-c", "python app_db.py"]
