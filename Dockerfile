@@ -36,8 +36,10 @@ RUN CHROME_DRIVER_VERSION=`curl -sS chromedriver.storage.googleapis.com/LATEST_R
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements_clean.txt requirements.txt ./
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements_clean.txt || \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
 COPY . .
