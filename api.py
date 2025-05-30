@@ -49,6 +49,10 @@ if not os.path.exists(".screenshots"):
     os.makedirs(".screenshots")
 api.mount("/screenshots", StaticFiles(directory=".screenshots"), name="screenshots")
 
+# Serve frontend static files if they exist
+if os.path.exists("static"):
+    api.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 def get_default_model_for_provider(provider_name):
     """Get default model for each provider"""
     model_mapping = {
@@ -384,4 +388,5 @@ async def update_feature_flag(flag_data: dict):
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 if __name__ == "__main__":
-    uvicorn.run(api, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(api, host="0.0.0.0", port=port)

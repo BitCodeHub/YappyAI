@@ -57,5 +57,5 @@ ENV CHROME_PATH=/usr/bin/google-chrome-stable
 # Expose port
 EXPOSE 8000
 
-# Start command - use the working api.py file
-CMD ["uvicorn", "api:api", "--host", "0.0.0.0", "--port", "8000"]
+# Start command - use Railway's PORT environment variable
+CMD uvicorn api:api --host 0.0.0.0 --port ${PORT:-8000}
