@@ -24,4 +24,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Start command
-CMD ["sh", "-c", "python api.py"]
+CMD ["sh", "-c", "python app.py"]
