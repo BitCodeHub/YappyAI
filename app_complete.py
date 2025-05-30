@@ -41,15 +41,21 @@ import aiofiles
 
 class Database:
     def __init__(self):
-        self.users_file = "users_db.json"
-        self.conversations_file = "conversations_db.json"
+        # Use /tmp directory for Render deployment
+        data_dir = os.environ.get('DATA_DIR', '/tmp')
+        self.users_file = os.path.join(data_dir, "users_db.json")
+        self.conversations_file = os.path.join(data_dir, "conversations_db.json")
         self.ensure_files()
     
     def ensure_files(self):
         for file in [self.users_file, self.conversations_file]:
-            if not os.path.exists(file):
-                with open(file, 'w') as f:
-                    json.dump({}, f)
+            try:
+                if not os.path.exists(file):
+                    with open(file, 'w') as f:
+                        json.dump({}, f)
+                    print(f"Created {file}")
+            except Exception as e:
+                print(f"Error creating {file}: {e}")
     
     async def load_users(self):
         async with aiofiles.open(self.users_file, 'r') as f:
@@ -113,7 +119,7 @@ security = HTTPBearer(auto_error=False)
 class UserSignup(BaseModel):
     username: str
     password: str
-    email: str
+    email: Optional[str] = None
 
 class UserLogin(BaseModel):
     username: str
@@ -566,37 +572,41 @@ async def health_check():
         }
     }
 
-@app.post("/api/signup", response_model=TokenResponse)
+@app.post("/auth/register", response_model=TokenResponse)
 async def signup(user: UserSignup):
     """Create a new user account"""
-    users = await db.load_users()
-    
-    if user.username in users:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # Create user
-    users[user.username] = {
-        "password": hash_password(user.password),
-        "email": user.email,
-        "created_at": datetime.now().isoformat(),
-        "api_keys": {},
-        "preferences": {
-            "default_model": "openai",
-            "personality_level": "high"
+    try:
+        users = await db.load_users()
+        
+        if user.username in users:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Create user
+        users[user.username] = {
+            "password": hash_password(user.password),
+            "email": user.email or f"{user.username}@yappy.ai",
+            "created_at": datetime.now().isoformat(),
+            "api_keys": {},
+            "preferences": {
+                "default_model": "openai",
+                "personality_level": "high"
+            }
         }
-    }
-    
-    await db.save_users(users)
-    
-    # Create token
-    token = create_token(user.username)
-    
-    return TokenResponse(
-        access_token=token,
-        username=user.username
-    )
+        
+        await db.save_users(users)
+        
+        # Create token
+        token = create_token(user.username)
+        
+        return TokenResponse(
+            access_token=token,
+            username=user.username
+        )
+    except Exception as e:
+        print(f"Signup error: {e}")
+        raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
 
-@app.post("/api/login", response_model=TokenResponse)
+@app.post("/auth/login", response_model=TokenResponse)
 async def login(user: UserLogin):
     """Login to get access token"""
     users = await db.load_users()
