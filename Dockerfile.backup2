@@ -1,0 +1,2 @@
+# Temporarily disabled due to Docker registry issues
+# Rename back to Dockerfile when Railway fixes registry connection
