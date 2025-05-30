@@ -53,23 +53,23 @@ metadata = MetaData()
 users_table = Table(
     "users",
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("username", String, unique=True, index=True),
-    Column("email", String),
-    Column("password_hash", String),
-    Column("api_keys", JSON),
-    Column("preferences", JSON),
-    Column("created_at", DateTime, default=datetime.utcnow),
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("username", String(50), unique=True, index=True, nullable=False),
+    Column("email", String(100)),
+    Column("password_hash", String(255), nullable=False),
+    Column("api_keys", JSON, default={}),
+    Column("preferences", JSON, default={}),
+    Column("created_at", DateTime, default=datetime.now),
 )
 
 conversations_table = Table(
     "conversations",
     metadata,
-    Column("id", String, primary_key=True),
-    Column("user_id", Integer),
-    Column("title", String),
-    Column("messages", JSON),
-    Column("created_at", DateTime, default=datetime.utcnow),
+    Column("id", String(50), primary_key=True),
+    Column("user_id", Integer, nullable=False),
+    Column("title", String(200)),
+    Column("messages", JSON, default=[]),
+    Column("created_at", DateTime, default=datetime.now),
 )
 
 engine = sqlalchemy.create_engine(DATABASE_URL)
@@ -352,11 +352,22 @@ async def chat_redirect():
 
 @app.get("/health")
 async def health_check():
+    # Check user count
+    user_count = 0
+    try:
+        if database.is_connected:
+            count_query = users_table.select()
+            users = await database.fetch_all(count_query)
+            user_count = len(users)
+    except Exception as e:
+        print(f"Error counting users: {e}")
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": "4.0.0",
         "database": "connected" if database.is_connected else "disconnected",
+        "users_in_db": user_count,
         "features": {
             "authentication": True,
             "multi_llm": True,
@@ -364,6 +375,19 @@ async def health_check():
             "database_persistence": True,
         }
     }
+
+@app.get("/admin/reset-db")
+async def reset_database():
+    """Reset database tables (for testing only)"""
+    try:
+        # Drop and recreate tables
+        metadata.drop_all(bind=engine)
+        metadata.create_all(bind=engine)
+        print("✅ Database tables reset successfully")
+        return {"message": "Database reset successfully"}
+    except Exception as e:
+        print(f"❌ Database reset failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Database reset failed: {str(e)}")
 
 @app.post("/auth/register", response_model=TokenResponse)
 async def signup(user: UserSignup):
