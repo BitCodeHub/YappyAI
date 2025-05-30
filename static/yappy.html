@@ -1217,9 +1217,7 @@
                         const baseURL = '';
                         const response = await axios.post(`${baseURL}/auth/login`, {
                             username,
-                            password,
-                            llm_model: selectedModel,
-                            api_key: apiKey
+                            password
                         });
                         
                         const { access_token } = response.data;
@@ -1402,13 +1400,15 @@
 
             useEffect(() => {
                 if (isAuthenticated) {
+                    // Initial health check
+                    checkHealth();
+                    // Check health every 30 seconds
                     const intervalId = setInterval(() => {
                         checkHealth();
-                        fetchLatestAnswer();
-                    }, 3000);
+                    }, 30000);
                     return () => clearInterval(intervalId);
                 }
-            }, [messages, isAuthenticated]);
+            }, [isAuthenticated]);
 
             const handleLogin = (token, llmSettings) => {
                 setIsAuthenticated(true);
@@ -1439,13 +1439,6 @@
                 }
             };
 
-            const normalizeAnswer = (answer) => {
-                return answer
-                    .trim()
-                    .toLowerCase()
-                    .replace(/\s+/g, ' ')
-                    .replace(/[.,!?]/g, '');
-            };
 
             const scrollToBottom = () => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1467,53 +1460,7 @@
                 });
             };
 
-            const fetchLatestAnswer = async () => {
-                try {
-                    const baseURL = '';
-                    const res = await axios.get(`${baseURL}/latest_answer`);
-                    const data = res.data;
 
-                    if (!data.answer || data.answer.trim() === '') {
-                        return;
-                    }
-                    const normalizedNewAnswer = normalizeAnswer(data.answer);
-                    const answerExists = messages.some(
-                        (msg) => normalizeAnswer(msg.content) === normalizedNewAnswer
-                    );
-                    if (!answerExists) {
-                        setMessages((prev) => [
-                            ...prev,
-                            {
-                                type: 'agent',
-                                content: data.answer,
-                                reasoning: data.reasoning,
-                                agentName: data.agent_name,
-                                status: data.status,
-                                uid: data.uid,
-                            },
-                        ]);
-                        setStatus(data.status);
-                        scrollToBottom();
-                    } else {
-                        console.log('Duplicate answer detected, skipping:', data.answer);
-                    }
-                } catch (error) {
-                    console.error('Error fetching latest answer:', error);
-                }
-            };
-
-            const handleStop = async (e) => {
-                e.preventDefault();
-                checkHealth();
-                setIsLoading(false);
-                setError(null);
-                try {
-                    await axios.get('/stop');
-                    setStatus("Requesting stop...");
-                } catch (err) {
-                    console.error('Error stopping the agent:', err);
-                }
-            };
 
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
@@ -1613,14 +1560,22 @@
                         return;
                     }
                     
+                    // Generate a conversation ID if not exists
+                    let conversationId = localStorage.getItem('yappy_conversation_id');
+                    if (!conversationId) {
+                        conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        localStorage.setItem('yappy_conversation_id', conversationId);
+                    }
+                    
                     const payload = {
-                        query,
-                        tts_enabled: false,
-                        llm_model: llmModel,
-                        api_key: apiKey
+                        message: query,
+                        model_name: llmModel,
+                        conversation_id: conversationId
                     };
                     
                     if (uploadedFile && fileContent) {
+                        // Include file info in the message
+                        payload.message = `${query}\n\n[File: ${uploadedFile.name} (${uploadedFile.type})]`;
                         payload.file_data = {
                             name: uploadedFile.name,
                             type: uploadedFile.type,
@@ -1635,9 +1590,27 @@
                     }
                     
                     const baseURL = '';
-                    const res = await axios.post(`${baseURL}/query`, payload);
-                    setQuery('Enter your query...');
+                    const res = await axios.post(`${baseURL}/api/chat`, payload);
                     console.log('Response:', res.data);
+                    
+                    // Add the AI response to messages
+                    if (res.data && res.data.response) {
+                        setMessages((prev) => [
+                            ...prev,
+                            {
+                                type: 'agent',
+                                content: res.data.response,
+                                agentName: 'Yappy',
+                                status: 'Completed',
+                                model: res.data.model_used,
+                                tokens: res.data.tokens_used
+                            }
+                        ]);
+                        scrollToBottom();
+                    }
+                    
+                    // Clear the file after successful send
+                    removeFile();
                 } catch (err) {
                     console.error('Error:', err);
                     setError('Failed to process query.');
@@ -1888,9 +1861,6 @@
                                         <button type="submit" disabled={isLoading} className="send-button">
                                             <span>{isLoading ? '⏳' : '✨'}</span>
                                             {isLoading ? 'Thinking...' : 'Send'}
-                                        </button>
-                                        <button onClick={handleStop} className="stop-button">
-                                            ⏹️ Stop
                                         </button>
                                     </div>
                                 </form>
