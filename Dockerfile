@@ -4,17 +4,16 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy and install requirements first (better caching)
-COPY requirements_minimal.txt requirements.txt ./
-RUN pip install --no-cache-dir -r requirements_minimal.txt && \
-    pip install openai anthropic google-generativeai groq || \
-    pip install -r requirements.txt
+COPY requirements_complete.txt ./
+RUN pip install --no-cache-dir -r requirements_complete.txt
 
 # Copy application code
 COPY . .
 
-# Create necessary directories and ensure static files are present
+# Ensure static directory exists with files
 RUN mkdir -p .screenshots .logs && \
-    ls -la static/ || echo "Static directory not found"
+    echo "Contents of /app:" && ls -la /app/ && \
+    echo "Contents of /app/static:" && ls -la /app/static/ || echo "Static directory not found"
 
 # Environment
 ENV PYTHONUNBUFFERED=1
