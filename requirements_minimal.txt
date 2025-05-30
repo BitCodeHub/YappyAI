@@ -3,6 +3,7 @@ uvicorn==0.34.0
 pydantic==2.10.6
 python-multipart==0.0.6
 aiofiles==24.1.0
+python-dotenv==1.0.0
 celery==5.3.6
 redis==5.0.1
 pyjwt==2.8.0
