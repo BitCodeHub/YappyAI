@@ -23,5 +23,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Start command
-CMD ["sh", "-c", "python app.py"]
+# Start command - use full version
+CMD ["sh", "-c", "python app_full.py"]
