@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yappy - Your AI Assistant</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- React and dependencies from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- React Markdown -->
+    <script src="https://unpkg.com/react-markdown@8.0.7/react-markdown.min.js"></script>
+    <script src="https://unpkg.com/remark-gfm@3.0.1/index.js"></script>
+    
+    <style>
+        /* CSS Variables for Theme */
+        :root {
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-tertiary: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-dark: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            --gradient-yappy: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            
+            /* Colors */
+            --color-primary: #667eea;
+            --color-secondary: #764ba2;
+            --color-accent: #f093fb;
+            --color-success: #4ade80;
+            --color-error: #f87171;
+            --color-warning: #fbbf24;
+            
+            /* Dark theme colors */
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.5);
+            
+            /* Effects */
+            --glow-primary: 0 0 40px rgba(102, 126, 234, 0.5);
+            --glow-secondary: 0 0 40px rgba(240, 147, 251, 0.5);
+            --shadow-card: 0 20px 40px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 30px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--gradient-dark);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(240, 147, 251, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(79, 172, 254, 0.2) 0%, transparent 50%);
+            z-index: -1;
+            animation: gradientShift 20s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-20px, -20px) rotate(120deg); }
+            66% { transform: translate(20px, -20px) rotate(240deg); }
+        }
+
+        .app {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(100px);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            padding: 20px 30px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 100;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .yappy-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .yappy-logo-icon {
+            position: relative;
+            width: 35px;
+            height: 35px;
+            animation: logoWiggle 4s ease-in-out infinite;
+        }
+
+        @keyframes logoWiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+
+        .yappy-logo h1 {
+            margin: 0;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .logout-button {
+            position: absolute;
+            right: 30px;
+            background: var(--gradient-secondary);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+        }
+
+        .logout-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(240, 147, 251, 0.5);
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            padding: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+        }
+
+        .chat-section {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            backdrop-filter: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Messages Container */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            width: 100%;
+            max-width: none;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: var(--gradient-primary);
+            border-radius: 10px;
+        }
+
+        /* Welcome Message */
+        .welcome-message {
+            text-align: center;
+            padding: 60px 20px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-message h2 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-message p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Message Styles */
+        .message {
+            max-width: none;
+            padding: 0;
+            border-radius: 0;
+            font-size: 16px;
+            line-height: 1.8;
+            position: relative;
+            animation: messageSlide 0.4s ease-out;
+            transition: all 0.3s ease;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100%;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-message {
+            background: none;
+            color: var(--color-primary);
+            align-self: flex-start;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .agent-message {
+            background: none;
+            color: var(--text-primary);
+            align-self: flex-start;
+            text-align: left;
+        }
+
+        .error-message {
+            background: none;
+            color: var(--color-error);
+            align-self: flex-start;
+            text-align: left;
+        }
+
+        /* Agent Info Section */
+        .agent-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+            margin-top: 0;
+        }
+
+        .agent-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-indicator.online {
+            background: var(--color-success);
+            box-shadow: 0 0 10px var(--color-success);
+        }
+
+        .status-indicator.offline {
+            background: var(--color-error);
+            box-shadow: 0 0 10px var(--color-error);
+        }
+
+        /* Input Form */
+        .input-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-form input[type="text"] {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-radius: 25px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-form input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-form input:focus {
+            border-color: var(--color-primary);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-button {
+            padding: 14px 18px;
+            font-size: 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            color: var(--color-primary);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-button:hover:not(:disabled) {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-button, .stop-button {
+            padding: 14px 28px;
+            font-size: 15px;
+            font-weight: 500;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .send-button {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .send-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .stop-button {
+            background: var(--gradient-secondary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+        }
+
+        .stop-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(240, 147, 251, 0.5);
+        }
+
+        /* Message Content */
+        .message-content {
+            margin-top: 0;
+            padding-top: 0;
+        }
+
+        .message-content p:first-child {
+            margin-top: 0;
+        }
+
+        /* Code blocks in messages */
+        .message-content pre {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 16px 0;
+            overflow-x: auto;
+            border-left: 3px solid var(--color-accent);
+        }
+
+        .message-content code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 14px;
+            color: #e2e8f0;
+        }
+
+        /* File Preview in Messages */
+        .message-file-preview {
+            margin-top: 10px;
+            max-width: 400px;
+        }
+
+        .message-file-preview img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 6px rgba(139, 92, 246, 0.1);
+        }
+
+        /* Copy Text Feature */
+        .message-text-container {
+            position: relative;
+        }
+
+        .copy-button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .copy-text-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .copy-text-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+            background: linear-gradient(135deg, #7c8aed 0%, #8b57a5 100%);
+        }
+
+        /* Long text content */
+        .long-text-content {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Reasoning Toggle */
+        .reasoning-toggle {
+            background: none;
+            border: 1px solid var(--color-accent);
+            border-radius: 15px;
+            color: var(--color-accent);
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            align-self: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .reasoning-toggle:hover {
+            background: rgba(240, 147, 251, 0.1);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .reasoning-content {
+            margin-top: 12px;
+            padding: 0 0 0 20px;
+            background: none;
+            border-left: 2px solid var(--color-primary);
+            border-radius: 0;
+            font-size: 14px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease-out;
+            color: var(--text-secondary);
+        }
+
+        /* Yappy Character Styles */
+        .yappy-avatar {
+            position: relative;
+            margin-bottom: 30px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .yappy-character {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+
+        /* Yappy Head */
+        .yappy-head {
+            position: absolute;
+            width: 100px;
+            height: 90px;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            border-radius: 50% 50% 45% 45%;
+            top: 20px;
+            left: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            animation: headBob 2s ease-in-out infinite;
+        }
+
+        @keyframes headBob {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        /* Yappy Ears */
+        .yappy-ear {
+            position: absolute;
+            width: 35px;
+            height: 50px;
+            background: linear-gradient(135deg, #8b4513 0%, #d2691e 100%);
+            border-radius: 80% 20% 50% 50%;
+            top: -15px;
+        }
+
+        .yappy-ear.left {
+            left: 5px;
+            transform: rotate(-25deg);
+            animation: earWiggleLeft 4s ease-in-out infinite;
+        }
+
+        .yappy-ear.right {
+            right: 5px;
+            transform: rotate(25deg);
+            animation: earWiggleRight 4s ease-in-out infinite;
+        }
+
+        @keyframes earWiggleLeft {
+            0%, 100% { transform: rotate(-25deg); }
+            25% { transform: rotate(-35deg); }
+            75% { transform: rotate(-15deg); }
+        }
+
+        @keyframes earWiggleRight {
+            0%, 100% { transform: rotate(25deg); }
+            25% { transform: rotate(15deg); }
+            75% { transform: rotate(35deg); }
+        }
+
+        /* Yappy Face */
+        .yappy-face {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Yappy Eyes */
+        .yappy-eye {
+            position: absolute;
+            width: 20px;
+            height: 25px;
+            background: #333;
+            border-radius: 50%;
+            top: 30px;
+        }
+
+        .yappy-eye.left {
+            left: 25px;
+        }
+
+        .yappy-eye.right {
+            right: 25px;
+        }
+
+        .yappy-pupil {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            top: 5px;
+            left: 5px;
+            animation: lookAround 5s ease-in-out infinite;
+        }
+
+        @keyframes lookAround {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(3px, 0); }
+            50% { transform: translate(0, 3px); }
+            75% { transform: translate(-3px, 0); }
+        }
+
+        /* Yappy Nose */
+        .yappy-nose {
+            position: absolute;
+            width: 12px;
+            height: 10px;
+            background: #333;
+            border-radius: 50%;
+            top: 50px;
+            left: 44px;
+            animation: sniff 3s ease-in-out infinite;
+        }
+
+        @keyframes sniff {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Yappy Mouth */
+        .yappy-mouth {
+            position: absolute;
+            width: 40px;
+            height: 20px;
+            border: 3px solid #333;
+            border-top: none;
+            border-radius: 0 0 50% 50%;
+            top: 55px;
+            left: 30px;
+        }
+
+        .yappy-tongue {
+            position: absolute;
+            width: 20px;
+            height: 25px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            top: 5px;
+            left: 7px;
+            animation: pant 1s ease-in-out infinite;
+        }
+
+        @keyframes pant {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(3px); }
+        }
+
+        /* Yappy Body */
+        .yappy-body {
+            position: absolute;
+            width: 80px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            border-radius: 50% 50% 40% 40%;
+            top: 90px;
+            left: 35px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Yappy Tail */
+        .yappy-tail {
+            position: absolute;
+            width: 30px;
+            height: 40px;
+            background: linear-gradient(135deg, #8b4513 0%, #d2691e 100%);
+            border-radius: 50% 10% 50% 10%;
+            top: 10px;
+            right: -20px;
+            transform-origin: bottom left;
+            animation: wagTail 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes wagTail {
+            0% { transform: rotate(-20deg); }
+            100% { transform: rotate(20deg); }
+        }
+
+        /* Yappy Paws */
+        .yappy-paw {
+            position: absolute;
+            width: 20px;
+            height: 25px;
+            background: #8b4513;
+            border-radius: 50% 50% 40% 40%;
+            bottom: -20px;
+        }
+
+        .yappy-paw.front-left {
+            left: 10px;
+            animation: pawTap 2s ease-in-out infinite;
+        }
+
+        .yappy-paw.front-right {
+            right: 10px;
+            animation: pawTap 2s ease-in-out infinite 0.5s;
+        }
+
+        .yappy-paw.back-left {
+            left: 25px;
+        }
+
+        .yappy-paw.back-right {
+            right: 25px;
+        }
+
+        @keyframes pawTap {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Speech Bubble */
+        .yappy-speech-bubble {
+            position: absolute;
+            background: white;
+            border-radius: 20px;
+            padding: 10px 15px;
+            top: 30px;
+            left: 130px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            animation: bounce 2s ease-in-out infinite;
+            white-space: nowrap;
+        }
+
+        .yappy-speech-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid white;
+            left: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .yappy-speech-bubble span {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Mini Yappy Avatar */
+        .yappy-mini-avatar {
+            width: 30px;
+            height: 30px;
+            position: relative;
+            margin-right: 8px;
+            animation: miniFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes miniFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .yappy-mini-head {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            border-radius: 50% 50% 45% 45%;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .yappy-mini-ear {
+            position: absolute;
+            width: 8px;
+            height: 12px;
+            background: #8b4513;
+            border-radius: 80% 20% 50% 50%;
+            top: -3px;
+        }
+
+        .yappy-mini-ear.left {
+            left: 3px;
+            transform: rotate(-25deg);
+        }
+
+        .yappy-mini-ear.right {
+            right: 3px;
+            transform: rotate(25deg);
+        }
+
+        .yappy-mini-eye {
+            position: absolute;
+            width: 4px;
+            height: 5px;
+            background: #333;
+            border-radius: 50%;
+            top: 10px;
+        }
+
+        .yappy-mini-eye.left {
+            left: 8px;
+        }
+
+        .yappy-mini-eye.right {
+            right: 8px;
+        }
+
+        .yappy-mini-nose {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #333;
+            border-radius: 50%;
+            top: 15px;
+            left: 13.5px;
+        }
+
+        /* Auth Styles */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(240, 147, 251, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(79, 172, 254, 0.3) 0%, transparent 50%);
+            animation: gradientShift 20s ease infinite;
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(60px);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+                0 0 100px rgba(102, 126, 234, 0.15);
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+            z-index: 1;
+            animation: slideUp 0.6s ease-out;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            border-radius: 23px;
+            opacity: 0.7;
+            z-index: -1;
+            animation: borderGlow 4s ease-in-out infinite alternate;
+            filter: blur(1px);
+        }
+
+        @keyframes borderGlow {
+            from { opacity: 0.5; }
+            to { opacity: 0.9; }
+        }
+
+        .auth-yappy-character {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+            transform: scale(0.7);
+        }
+
+        .auth-yappy-character .yappy-character {
+            margin: 0;
+        }
+
+        .auth-yappy-character .yappy-speech-bubble {
+            top: 20px;
+            left: 130px;
+        }
+
+        .auth-card h1 {
+            text-align: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 50%, #e0f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 
+                0 0 40px rgba(255, 255, 255, 0.8),
+                0 4px 20px rgba(0, 0, 0, 0.6),
+                0 0 80px rgba(79, 172, 254, 0.4);
+            animation: titleGlow 3s ease-in-out infinite alternate;
+            position: relative;
+            padding: 0.5rem 1rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group input {
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            color: white;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 400;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 25px rgba(102, 126, 234, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .model-selector {
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            color: white;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.5em;
+            padding-right: 3rem;
+        }
+
+        .model-selector option {
+            background: #302b63;
+            color: white;
+            padding: 0.5rem;
+        }
+
+        .auth-form button[type="submit"] {
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-form button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+            border-color: rgba(255, 255, 255, 0.4);
+            background: linear-gradient(135deg, #7c8aed 0%, #8b57a5 100%);
+        }
+
+        .auth-form button[type="submit"]:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            color: #f87171;
+            font-size: 0.875rem;
+            margin: 0;
+            text-align: center;
+            padding: 0.75rem;
+            background: rgba(248, 113, 113, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        .success-message {
+            color: #4ade80;
+            font-size: 0.875rem;
+            margin: 0;
+            text-align: center;
+            padding: 0.75rem;
+            background: rgba(74, 222, 128, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 2rem;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.95rem;
+            font-weight: 400;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: #f093fb;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: inherit;
+            padding: 0;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .link-button::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+            transition: width 0.3s ease;
+        }
+
+        .link-button:hover:not(:disabled)::after {
+            width: 100%;
+        }
+
+        .link-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .messages {
+                padding: 20px 30px;
+            }
+            
+            .yappy-character {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .yappy-head {
+                width: 80px;
+                height: 70px;
+                top: 15px;
+                left: 20px;
+            }
+            
+            .yappy-speech-bubble {
+                right: -60px;
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const ReactMarkdown = window.ReactMarkdown;
+
+        // Auth Component
+        function Auth({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [selectedModel, setSelectedModel] = useState('openai');
+            const [apiKey, setApiKey] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+                setIsLoading(true);
+
+                try {
+                    if (isLogin) {
+                        const baseURL = '';
+                        const response = await axios.post(`${baseURL}/auth/login`, {
+                            username,
+                            password,
+                            llm_model: selectedModel,
+                            api_key: apiKey
+                        });
+                        
+                        const { access_token } = response.data;
+                        
+                        localStorage.setItem('yappy_token', access_token);
+                        localStorage.setItem('yappy_llm_model', selectedModel);
+                        localStorage.setItem('yappy_api_key', apiKey);
+                        
+                        axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+                        
+                        setSuccess('Login successful!');
+                        
+                        setTimeout(() => {
+                            onLogin(access_token, { model: selectedModel, apiKey });
+                        }, 1000);
+                        
+                    } else {
+                        const baseURL = '';
+                        await axios.post(`${baseURL}/auth/register`, {
+                            username,
+                            password
+                        });
+                        
+                        setSuccess('Registration successful! Please login.');
+                        setIsLogin(true);
+                        setPassword('');
+                    }
+                } catch (err) {
+                    if (err.response?.data?.detail) {
+                        setError(err.response.data.detail);
+                    } else {
+                        setError('An error occurred. Please try again.');
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="auth-container">
+                    <div className="auth-card">
+                        <div className="auth-yappy-character">
+                            <div className="yappy-character">
+                                <div className="yappy-head">
+                                    <div className="yappy-ear left"></div>
+                                    <div className="yappy-ear right"></div>
+                                    <div className="yappy-face">
+                                        <div className="yappy-eye left">
+                                            <div className="yappy-pupil"></div>
+                                        </div>
+                                        <div className="yappy-eye right">
+                                            <div className="yappy-pupil"></div>
+                                        </div>
+                                        <div className="yappy-nose"></div>
+                                        <div className="yappy-mouth">
+                                            <div className="yappy-tongue"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="yappy-body">
+                                    <div className="yappy-tail"></div>
+                                    <div className="yappy-paw front-left"></div>
+                                    <div className="yappy-paw front-right"></div>
+                                    <div className="yappy-paw back-left"></div>
+                                    <div className="yappy-paw back-right"></div>
+                                </div>
+                                <div className="yappy-speech-bubble">
+                                    <span>Welcome! 🐾</span>
+                                </div>
+                            </div>
+                        </div>
+                        <h1>Yappy</h1>
+                        
+                        <form onSubmit={handleSubmit} className="auth-form">
+                            <div className="form-group">
+                                <input
+                                    type="text"
+                                    placeholder="Username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <select
+                                    value={selectedModel}
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    disabled={isLoading}
+                                    className="model-selector"
+                                >
+                                    <option value="openai">OpenAI (GPT-4)</option>
+                                    <option value="anthropic">Anthropic (Claude)</option>
+                                    <option value="google">Google (Gemini)</option>
+                                    <option value="groq">Groq</option>
+                                    <option value="ollama">Ollama (Local)</option>
+                                </select>
+                            </div>
+                            
+                            <div className="form-group">
+                                <input
+                                    type="password"
+                                    placeholder={selectedModel === 'ollama' ? 'Ollama URL (e.g., http://localhost:11434)' : `${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} API Key (Required)`}
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    required={true}
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            
+                            {error && <p className="error-message">{error}</p>}
+                            {success && <p className="success-message">{success}</p>}
+                            
+                            <button type="submit" disabled={isLoading}>
+                                {isLoading ? 'Loading...' : (isLogin ? 'Login' : 'Register')}
+                            </button>
+                        </form>
+                        
+                        <p className="auth-switch">
+                            {isLogin ? "Don't have an account? " : "Already have an account? "}
+                            <button 
+                                className="link-button"
+                                onClick={() => {
+                                    setIsLogin(!isLogin);
+                                    setError('');
+                                    setSuccess('');
+                                }}
+                                disabled={isLoading}
+                            >
+                                {isLogin ? 'Register' : 'Login'}
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component
+        function App() {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [query, setQuery] = useState('');
+            const [messages, setMessages] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [isOnline, setIsOnline] = useState(false);
+            const [status, setStatus] = useState('Agents ready');
+            const [expandedReasoning, setExpandedReasoning] = useState(new Set());
+            const [uploadedFile, setUploadedFile] = useState(null);
+            const [fileContent, setFileContent] = useState(null);
+            const [filePreview, setFilePreview] = useState(null);
+            const messagesEndRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                const token = localStorage.getItem('yappy_token');
+                const apiKey = localStorage.getItem('yappy_api_key');
+                const llmModel = localStorage.getItem('yappy_llm_model');
+                
+                if (token && apiKey && llmModel) {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    setIsAuthenticated(true);
+                } else {
+                    localStorage.removeItem('yappy_token');
+                    localStorage.removeItem('yappy_llm_model');
+                    localStorage.removeItem('yappy_api_key');
+                }
+            }, []);
+
+            useEffect(() => {
+                if (isAuthenticated) {
+                    const intervalId = setInterval(() => {
+                        checkHealth();
+                        fetchLatestAnswer();
+                    }, 3000);
+                    return () => clearInterval(intervalId);
+                }
+            }, [messages, isAuthenticated]);
+
+            const handleLogin = (token, llmSettings) => {
+                setIsAuthenticated(true);
+                if (llmSettings) {
+                    localStorage.setItem('yappy_llm_model', llmSettings.model);
+                    localStorage.setItem('yappy_api_key', llmSettings.apiKey);
+                }
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('yappy_token');
+                localStorage.removeItem('yappy_llm_model');
+                localStorage.removeItem('yappy_api_key');
+                delete axios.defaults.headers.common['Authorization'];
+                setIsAuthenticated(false);
+                setMessages([]);
+            };
+
+            const checkHealth = async () => {
+                try {
+                    const baseURL = '';
+                    await axios.get(`${baseURL}/health`);
+                    setIsOnline(true);
+                    console.log('System is online');
+                } catch {
+                    setIsOnline(false);
+                    console.log('System is offline');
+                }
+            };
+
+            const normalizeAnswer = (answer) => {
+                return answer
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, ' ')
+                    .replace(/[.,!?]/g, '');
+            };
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const toggleReasoning = (messageIndex) => {
+                setExpandedReasoning(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(messageIndex)) {
+                        newSet.delete(messageIndex);
+                    } else {
+                        newSet.add(messageIndex);
+                    }
+                    return newSet;
+                });
+            };
+
+            const fetchLatestAnswer = async () => {
+                try {
+                    const baseURL = '';
+                    const res = await axios.get(`${baseURL}/latest_answer`);
+                    const data = res.data;
+
+                    if (!data.answer || data.answer.trim() === '') {
+                        return;
+                    }
+                    const normalizedNewAnswer = normalizeAnswer(data.answer);
+                    const answerExists = messages.some(
+                        (msg) => normalizeAnswer(msg.content) === normalizedNewAnswer
+                    );
+                    if (!answerExists) {
+                        setMessages((prev) => [
+                            ...prev,
+                            {
+                                type: 'agent',
+                                content: data.answer,
+                                reasoning: data.reasoning,
+                                agentName: data.agent_name,
+                                status: data.status,
+                                uid: data.uid,
+                            },
+                        ]);
+                        setStatus(data.status);
+                        scrollToBottom();
+                    } else {
+                        console.log('Duplicate answer detected, skipping:', data.answer);
+                    }
+                } catch (error) {
+                    console.error('Error fetching latest answer:', error);
+                }
+            };
+
+            const handleStop = async (e) => {
+                e.preventDefault();
+                checkHealth();
+                setIsLoading(false);
+                setError(null);
+                try {
+                    await axios.get('/stop');
+                    setStatus("Requesting stop...");
+                } catch (err) {
+                    console.error('Error stopping the agent:', err);
+                }
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                console.log('File selected:', file);
+                if (file) {
+                    setUploadedFile(file);
+                    console.log('File uploaded:', file.name, file.type);
+                    
+                    let preview = null;
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            preview = e.target.result;
+                            setFilePreview(preview);
+                            
+                            const fileMessage = {
+                                type: 'user',
+                                content: `📎 Uploaded: ${file.name}\n\n[Image preview shown below]`,
+                                filePreview: preview,
+                                fileName: file.name,
+                                fileType: file.type
+                            };
+                            setMessages(prev => [...prev, fileMessage]);
+                            scrollToBottom();
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        setFilePreview(null);
+                        
+                        const fileMessage = {
+                            type: 'user',
+                            content: `📎 Uploaded: ${file.name} (${file.type || 'unknown type'})`,
+                            fileName: file.name,
+                            fileType: file.type
+                        };
+                        setMessages(prev => [...prev, fileMessage]);
+                        scrollToBottom();
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setFileContent(e.target.result);
+                    };
+                    
+                    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                        reader.readAsText(file);
+                    } else if (file.type.startsWith('image/')) {
+                        reader.readAsDataURL(file);
+                    } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+                        reader.readAsDataURL(file);
+                    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || 
+                               file.type.includes('spreadsheet') || file.type.includes('excel')) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        reader.readAsText(file);
+                    }
+                }
+            };
+
+            const removeFile = () => {
+                setUploadedFile(null);
+                setFileContent(null);
+                setFilePreview(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                checkHealth();
+                if (!query.trim() && !uploadedFile) {
+                    console.log('Empty query and no file');
+                    return;
+                }
+                
+                let userMessage = query;
+                if (uploadedFile) {
+                    userMessage += `\n\n📎 Attached: ${uploadedFile.name} (${uploadedFile.type})`;
+                }
+                setMessages((prev) => [...prev, { type: 'user', content: userMessage }]);
+                scrollToBottom();
+                setIsLoading(true);
+                setError(null);
+
+                try {
+                    console.log('Sending query:', query);
+                    setQuery('waiting for response...');
+                    
+                    const llmModel = localStorage.getItem('yappy_llm_model');
+                    const apiKey = localStorage.getItem('yappy_api_key');
+                    
+                    if (!apiKey || !llmModel) {
+                        setError('No API key found. Please log out and log back in with your API key.');
+                        setIsLoading(false);
+                        setQuery('');
+                        return;
+                    }
+                    
+                    const payload = {
+                        query,
+                        tts_enabled: false,
+                        llm_model: llmModel,
+                        api_key: apiKey
+                    };
+                    
+                    if (uploadedFile && fileContent) {
+                        payload.file_data = {
+                            name: uploadedFile.name,
+                            type: uploadedFile.type,
+                            content: fileContent
+                        };
+                        console.log('Sending file data:', {
+                            name: uploadedFile.name,
+                            type: uploadedFile.type,
+                            contentLength: fileContent.length,
+                            contentPreview: fileContent.substring(0, 100)
+                        });
+                    }
+                    
+                    const baseURL = '';
+                    const res = await axios.post(`${baseURL}/query`, payload);
+                    setQuery('Enter your query...');
+                    console.log('Response:', res.data);
+                } catch (err) {
+                    console.error('Error:', err);
+                    setError('Failed to process query.');
+                    setMessages((prev) => [
+                        ...prev,
+                        { type: 'error', content: 'Error: Unable to get a response.' },
+                    ]);
+                    scrollToBottom();
+                } finally {
+                    console.log('Query completed');
+                    setIsLoading(false);
+                    setQuery('');
+                }
+            };
+
+            const copyToClipboard = (text) => {
+                const cleanText = text
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/\*(.*?)\*/g, '$1')
+                    .replace(/`(.*?)`/g, '$1')
+                    .replace(/#{1,6}\s/g, '')
+                    .replace(/^\s*[-*+]\s/gm, '• ')
+                    .replace(/^\s*\d+\.\s/gm, '')
+                    .trim();
+                
+                navigator.clipboard.writeText(cleanText).then(() => {
+                    const button = document.activeElement;
+                    const originalText = button.textContent;
+                    button.textContent = '✅ Copied!';
+                    button.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '';
+                    }, 2000);
+                }).catch(() => {
+                    alert('Failed to copy text. Please select and copy manually.');
+                });
+            };
+
+            if (!isAuthenticated) {
+                return <Auth onLogin={handleLogin} />;
+            }
+
+            return (
+                <div className="app">
+                    <header className="header">
+                        <div className="header-content">
+                            <div className="yappy-logo">
+                                <div className="yappy-logo-icon">
+                                    <div className="yappy-mini-head">
+                                        <div className="yappy-mini-ear left"></div>
+                                        <div className="yappy-mini-ear right"></div>
+                                        <div className="yappy-mini-eye left"></div>
+                                        <div className="yappy-mini-eye right"></div>
+                                        <div className="yappy-mini-nose"></div>
+                                    </div>
+                                </div>
+                                <h1>Yappy</h1>
+                            </div>
+                            <button onClick={handleLogout} className="logout-button">
+                                Logout
+                            </button>
+                        </div>
+                    </header>
+                    <main className="main">
+                        <div className="chat-container">
+                            <div className="chat-section">
+                                <div className="messages">
+                                    {messages.length === 0 ? (
+                                        <div className="welcome-message">
+                                            <div className="yappy-avatar">
+                                                <div className="yappy-character">
+                                                    <div className="yappy-head">
+                                                        <div className="yappy-ear left"></div>
+                                                        <div className="yappy-ear right"></div>
+                                                        <div className="yappy-face">
+                                                            <div className="yappy-eye left">
+                                                                <div className="yappy-pupil"></div>
+                                                            </div>
+                                                            <div className="yappy-eye right">
+                                                                <div className="yappy-pupil"></div>
+                                                            </div>
+                                                            <div className="yappy-nose"></div>
+                                                            <div className="yappy-mouth">
+                                                                <div className="yappy-tongue"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="yappy-body">
+                                                        <div className="yappy-tail"></div>
+                                                        <div className="yappy-paw front-left"></div>
+                                                        <div className="yappy-paw front-right"></div>
+                                                        <div className="yappy-paw back-left"></div>
+                                                        <div className="yappy-paw back-right"></div>
+                                                    </div>
+                                                    <div className="yappy-speech-bubble">
+                                                        <span>Woof! 🐾</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <h2>Hello, I'm Yappy</h2>
+                                            <p>Your friendly AI pup assistant! How can I help you today? 🎾</p>
+                                        </div>
+                                    ) : (
+                                        messages.map((msg, index) => (
+                                            <div
+                                                key={index}
+                                                className={`message ${
+                                                    msg.type === 'user'
+                                                        ? 'user-message'
+                                                        : msg.type === 'agent'
+                                                        ? 'agent-message'
+                                                        : 'error-message'
+                                                }`}
+                                            >
+                                                {msg.type === 'agent' && msg.reasoning && (
+                                                    <div className="message-header">
+                                                        <button 
+                                                            className="reasoning-toggle"
+                                                            onClick={() => toggleReasoning(index)}
+                                                            title={expandedReasoning.has(index) ? "Hide reasoning" : "Show reasoning"}
+                                                        >
+                                                            {expandedReasoning.has(index) ? '▼' : '▶'} Reasoning
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {msg.type === 'agent' && msg.reasoning && expandedReasoning.has(index) && (
+                                                    <div className="reasoning-content">
+                                                        <ReactMarkdown>{msg.reasoning}</ReactMarkdown>
+                                                    </div>
+                                                )}
+                                                {msg.type === 'agent' && (
+                                                    <div className="agent-info">
+                                                        <div className="yappy-mini-avatar">
+                                                            <div className="yappy-mini-head">
+                                                                <div className="yappy-mini-ear left"></div>
+                                                                <div className="yappy-mini-ear right"></div>
+                                                                <div className="yappy-mini-eye left"></div>
+                                                                <div className="yappy-mini-eye right"></div>
+                                                                <div className="yappy-mini-nose"></div>
+                                                            </div>
+                                                        </div>
+                                                        <span className="agent-name">{msg.agentName}</span>
+                                                    </div>
+                                                )}
+                                                <div className="message-content">
+                                                    {(() => {
+                                                        const base64ImageRegex = /!\[([^\]]*)\]\((data:image\/png;base64,[^)]+)\)/g;
+                                                        const images = [];
+                                                        let match;
+                                                        let contentWithoutImages = msg.content;
+                                                        
+                                                        while ((match = base64ImageRegex.exec(msg.content)) !== null) {
+                                                            images.push({
+                                                                alt: match[1] || 'Chart',
+                                                                src: match[2]
+                                                            });
+                                                            contentWithoutImages = contentWithoutImages.replace(match[0], '');
+                                                        }
+                                                        
+                                                        const showCopyButton = msg.type === 'agent' && contentWithoutImages.length > 50;
+                                                        
+                                                        return (
+                                                            <div className="message-text-container">
+                                                                {showCopyButton && (
+                                                                    <div className="copy-button-container">
+                                                                        <button 
+                                                                            className="copy-text-button"
+                                                                            onClick={() => copyToClipboard(contentWithoutImages)}
+                                                                            title="Copy text to clipboard"
+                                                                        >
+                                                                            📋 Copy Text
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                <div className={contentWithoutImages.length > 500 ? "long-text-content" : ""}>
+                                                                    <ReactMarkdown>{contentWithoutImages}</ReactMarkdown>
+                                                                </div>
+                                                                {images.map((img, idx) => (
+                                                                    <div key={idx} style={{margin: '20px 0', textAlign: 'center'}}>
+                                                                        <img 
+                                                                            src={img.src} 
+                                                                            alt={img.alt}
+                                                                            style={{
+                                                                                maxWidth: '100%', 
+                                                                                height: 'auto',
+                                                                                border: '1px solid #ddd',
+                                                                                borderRadius: '8px',
+                                                                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                                                            }}
+                                                                        />
+                                                                        <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                                                                            {img.alt}
+                                                                        </p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                    {msg.filePreview && (
+                                                        <div className="message-file-preview">
+                                                            <img src={msg.filePreview} alt={msg.fileName || "Uploaded image"} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                    <div ref={messagesEndRef} />
+                                </div>
+                                {isOnline && (
+                                    <div className="status-bar">
+                                        <div className="status-indicator online"></div>
+                                        <span>{status}</span>
+                                    </div>
+                                )}
+                                {!isLoading && !isOnline && (
+                                    <div className="status-bar">
+                                        <div className="status-indicator offline"></div>
+                                        <span>System offline. Deploy backend first.</span>
+                                    </div>
+                                )}
+                                <form onSubmit={handleSubmit} className="input-form">
+                                    <div className="input-container">
+                                        <input
+                                            type="text"
+                                            value={query}
+                                            onChange={(e) => setQuery(e.target.value)}
+                                            placeholder={uploadedFile ? "Ask about the uploaded file..." : "Ask Yappy anything..."}
+                                            disabled={isLoading}
+                                        />
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            onChange={handleFileUpload}
+                                            style={{ display: 'none' }}
+                                            accept=".csv,.xlsx,.xls,.pdf,.txt,.json,image/*"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => fileInputRef.current.click()} 
+                                            className="upload-button"
+                                            disabled={isLoading}
+                                            title="Upload file"
+                                        >
+                                            📁
+                                        </button>
+                                        <button type="submit" disabled={isLoading} className="send-button">
+                                            <span>{isLoading ? '⏳' : '✨'}</span>
+                                            {isLoading ? 'Thinking...' : 'Send'}
+                                        </button>
+                                        <button onClick={handleStop} className="stop-button">
+                                            ⏹️ Stop
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
