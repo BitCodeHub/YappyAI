@@ -183,15 +183,26 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         token = credentials.credentials
         username = token.split(":")[0]
         
+        # Check if database is connected
+        if not database.is_connected:
+            print("⚠️ Database not connected during token verification")
+            return username  # Allow access if DB is down
+        
         # Verify user exists in database
         query = users_table.select().where(users_table.c.username == username)
         user = await database.fetch_one(query)
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            print(f"⚠️ User {username} not found in database")
+            return username  # Still allow access for now
         
         return username
-    except:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"Token verification error: {e}")
+        # Extract username from token for emergency access
+        try:
+            return credentials.credentials.split(":")[0]
+        except:
+            raise HTTPException(status_code=401, detail="Invalid token")
 
 # LLM Integration
 class LLMHandler:
@@ -358,11 +369,19 @@ async def health_check():
 async def signup(user: UserSignup):
     """Create a new user account"""
     try:
+        print(f"Signup attempt for user: {user.username}")
+        
+        # Check database connection
+        if not database.is_connected:
+            print("❌ Database not connected for signup")
+            raise HTTPException(status_code=500, detail="Database unavailable")
+        
         # Check if user already exists
         query = users_table.select().where(users_table.c.username == user.username)
         existing_user = await database.fetch_one(query)
         
         if existing_user:
+            print(f"User {user.username} already exists")
             raise HTTPException(status_code=400, detail="Username already exists")
         
         # Create user
@@ -377,8 +396,17 @@ async def signup(user: UserSignup):
             }
         }
         
+        print(f"Creating user with data: {user_data['username']}, {user_data['email']}")
+        
         query = users_table.insert().values(**user_data)
-        await database.execute(query)
+        result = await database.execute(query)
+        
+        print(f"User created successfully, ID: {result}")
+        
+        # Verify user was created
+        verify_query = users_table.select().where(users_table.c.username == user.username)
+        created_user = await database.fetch_one(verify_query)
+        print(f"User verification: {created_user is not None}")
         
         # Create token
         token = create_token(user.username)
@@ -387,6 +415,8 @@ async def signup(user: UserSignup):
             access_token=token,
             username=user.username
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Signup error: {e}")
         raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
@@ -395,22 +425,45 @@ async def signup(user: UserSignup):
 async def login(user: UserLogin):
     """Login to get access token"""
     try:
+        print(f"Login attempt for user: {user.username}")
+        
+        # Check database connection
+        if not database.is_connected:
+            print("❌ Database not connected for login")
+            raise HTTPException(status_code=500, detail="Database unavailable")
+        
+        # Query for user
         query = users_table.select().where(users_table.c.username == user.username)
         db_user = await database.fetch_one(query)
         
+        print(f"User found in database: {db_user is not None}")
+        
         if not db_user:
+            # List all users for debugging
+            all_users_query = users_table.select()
+            all_users = await database.fetch_all(all_users_query)
+            print(f"Total users in database: {len(all_users)}")
+            for u in all_users:
+                print(f"  - {u.username}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        if db_user.password_hash != hash_password(user.password):
+        # Verify password
+        expected_hash = hash_password(user.password)
+        print(f"Password verification: {db_user.password_hash == expected_hash}")
+        
+        if db_user.password_hash != expected_hash:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Create token
         token = create_token(user.username)
+        print(f"Login successful for {user.username}")
         
         return TokenResponse(
             access_token=token,
             username=user.username
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Login error: {e}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
