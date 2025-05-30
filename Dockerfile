@@ -17,13 +17,11 @@ RUN mkdir -p static .screenshots .logs
 
 # Environment
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
+# Don't hardcode PORT - let Railway set it
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s \
-  CMD curl -f http://localhost:${PORT}/health || exit 1
+# Remove HEALTHCHECK - Railway handles this externally
 
-EXPOSE ${PORT}
+EXPOSE 8000
 
 # Start command
 CMD ["sh", "-c", "python api.py"]
