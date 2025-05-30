@@ -22,8 +22,11 @@ def read_root():
         "status": "ready",
         "endpoints": {
             "health": "/health",
-            "docs": "/docs"
-        }
+            "docs": "/docs",
+            "chat": "POST /api/chat",
+            "version": "/version"
+        },
+        "features": ["chat", "health-check", "api-docs"]
     }
 
 @app.get("/health")
