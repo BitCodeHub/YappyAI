@@ -520,13 +520,19 @@ async def root():
             
             <section class="cta">
                 <a href="/docs" class="btn">Try the API</a>
-                <a href="#" class="btn btn-secondary" onclick="alert('React chat interface coming soon! 🐕')">Open Chat</a>
+                <a href="/static/yappy.html" class="btn btn-secondary">Open Chat</a>
             </section>
         </main>
     </body>
     </html>
     """
     return html_content
+
+@app.get("/chat")
+async def chat_redirect():
+    """Redirect to Yappy chat interface"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/static/yappy.html", status_code=303)
 
 @app.get("/health")
 async def health_check():
