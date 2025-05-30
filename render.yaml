@@ -1,9 +1,11 @@
 services:
   - type: web
-    name: yappy-ai
+    name: yappy-ai-complete
     env: python
-    buildCommand: pip install -r requirements_minimal.txt
-    startCommand: python app.py
+    buildCommand: pip install -r requirements_complete.txt
+    startCommand: python app_complete.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: APP_VERSION
+        value: complete
