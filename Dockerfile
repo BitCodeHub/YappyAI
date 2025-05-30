@@ -1,25 +1,29 @@
-# Simple production Dockerfile without frontend build
+# Production Dockerfile - Fixed version
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Python dependencies first
-COPY requirements_minimal.txt .
+# Copy and install requirements first (better caching)
+COPY requirements_minimal.txt requirements.txt ./
 RUN pip install --no-cache-dir -r requirements_minimal.txt && \
-    pip install openai anthropic google-generativeai groq
+    pip install openai anthropic google-generativeai groq || \
+    pip install -r requirements.txt
 
-# Copy application files
-COPY api.py .
-COPY sources sources/
-COPY config.ini .
+# Copy application code
+COPY . .
 
-# Create directories
-RUN mkdir -p .screenshots .logs static
+# Create necessary directories
+RUN mkdir -p static .screenshots .logs
 
 # Environment
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
 
-EXPOSE 8000
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s \
+  CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Use the working API
-CMD ["python", "api.py"]
+EXPOSE ${PORT}
+
+# Start command
+CMD ["sh", "-c", "python api.py"]
