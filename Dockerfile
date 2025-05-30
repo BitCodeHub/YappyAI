@@ -54,8 +54,15 @@ RUN mkdir -p .screenshots
 ENV CHROME_BIN=/usr/bin/google-chrome-stable
 ENV CHROME_PATH=/usr/bin/google-chrome-stable
 
-# Expose port
+# Make start script executable
+COPY start.sh .
+RUN chmod +x start.sh
+
+# Expose port (Railway will override this)
 EXPOSE 8000
 
-# Start command - use Railway's PORT environment variable
-CMD uvicorn api:api --host 0.0.0.0 --port ${PORT:-8000}
+# Environment variable for Python unbuffered output
+ENV PYTHONUNBUFFERED=1
+
+# Start command using shell script
+CMD ["./start.sh"]
