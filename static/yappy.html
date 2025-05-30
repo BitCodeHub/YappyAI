@@ -1531,11 +1531,14 @@
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
+                console.log('🐕 handleSubmit called');
                 checkHealth();
                 if (!query.trim() && !uploadedFile) {
                     console.log('Empty query and no file');
                     return;
                 }
+                
+                console.log('🐕 Starting message send process');
                 
                 let userMessage = query;
                 if (uploadedFile) {
@@ -1602,8 +1605,19 @@
                                 content: res.data.response,
                                 agentName: 'Yappy',
                                 status: 'Completed',
-                                model: res.data.model_used,
-                                tokens: res.data.tokens_used
+                                model: res.data.model_used || llmModel,
+                                tokens: res.data.tokens_used || 0
+                            }
+                        ]);
+                        scrollToBottom();
+                    } else {
+                        // Fallback if response format is unexpected
+                        console.error('Unexpected response format:', res.data);
+                        setMessages((prev) => [
+                            ...prev,
+                            {
+                                type: 'error',
+                                content: 'Received response but could not parse it properly.',
                             }
                         ]);
                         scrollToBottom();
@@ -1613,10 +1627,19 @@
                     removeFile();
                 } catch (err) {
                     console.error('Error:', err);
+                    console.error('Error details:', err.response?.data);
+                    
+                    let errorMessage = 'Error: Unable to get a response.';
+                    if (err.response?.data?.detail) {
+                        errorMessage = `Error: ${err.response.data.detail}`;
+                    } else if (err.message) {
+                        errorMessage = `Error: ${err.message}`;
+                    }
+                    
                     setError('Failed to process query.');
                     setMessages((prev) => [
                         ...prev,
-                        { type: 'error', content: 'Error: Unable to get a response.' },
+                        { type: 'error', content: errorMessage },
                     ]);
                     scrollToBottom();
                 } finally {
