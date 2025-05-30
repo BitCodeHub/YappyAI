@@ -10,6 +10,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import uvicorn
 
+# Try to import OpenAI
+try:
+    import openai
+except ImportError:
+    openai = None
+    print("OpenAI not installed - install with: pip install openai")
+
 # Initialize FastAPI with metadata
 app = FastAPI(
     title="Yappy AI Assistant",
@@ -64,27 +71,45 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     username: str
 
+
 # LLM Handler
 async def get_llm_response(message: str, model_name: str, api_key: str) -> str:
     """Get response from LLM provider"""
     
-    # For demo, return Yappy personality response
-    # In production, integrate real LLMs here
-    
     if not api_key:
         return "Woof! 🐕 Please provide an API key to use AI features!"
     
-    # Demo responses based on model
-    if model_name == "openai":
-        return f"Woof! 🐕 [OpenAI Mode] You said: '{message}'. I'm Yappy, your friendly AI assistant! In production, this would use GPT-4."
-    elif model_name == "anthropic":
-        return f"Woof! 🐕 [Claude Mode] Tail-waggingly happy to help! You said: '{message}'. In production, this would use Claude."
-    elif model_name == "google":
-        return f"Woof! 🐕 [Gemini Mode] *excited tail wag* You said: '{message}'. In production, this would use Google's Gemini."
-    elif model_name == "groq":
-        return f"Woof! 🐕 [Groq Mode] Super fast response! You said: '{message}'. In production, this would use Groq's fast inference."
-    else:
-        return f"Woof! 🐕 You said: '{message}'. I'm ready to help!"
+    system_prompt = """You are Yappy, a friendly and enthusiastic AI assistant with a playful dog personality. 
+    You occasionally use dog-related expressions like 'Woof!', 'Tail-waggingly excited!', or '*wags tail*' to add charm.
+    You are helpful, knowledgeable, and always eager to assist!"""
+    
+    try:
+        # Real OpenAI integration
+        if model_name == "openai" and openai:
+            client = openai.OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            return response.choices[0].message.content
+            
+        # Demo responses for other models (for now)
+        elif model_name == "anthropic":
+            return f"Woof! 🐕 [Claude Mode - Demo] Tail-waggingly happy to help! You said: '{message}'. To enable real Claude, we need to add the Anthropic library."
+        elif model_name == "google":
+            return f"Woof! 🐕 [Gemini Mode - Demo] *excited tail wag* You said: '{message}'. To enable real Gemini, we need to add the Google AI library."
+        elif model_name == "groq":
+            return f"Woof! 🐕 [Groq Mode - Demo] Super fast response! You said: '{message}'. To enable real Groq, we need to add the Groq library."
+        else:
+            return f"Woof! 🐕 You said: '{message}'. I'm ready to help!"
+            
+    except Exception as e:
+        return f"Woof! 🐕 Sorry, I encountered an error: {str(e)}. Please check your API key and try again!"
 
 # Helper functions
 def create_token(username: str) -> str:
