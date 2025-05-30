@@ -263,6 +263,16 @@ llm_handler = LLMHandler()
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def root():
+    """Serve the Yappy chat interface directly"""
+    yappy_path = os.path.join("static", "yappy.html")
+    if os.path.exists(yappy_path):
+        return FileResponse(yappy_path)
+    
+    # Fallback to the landing page if yappy.html doesn't exist
+    return await root_landing()
+
+@app.get("/landing", response_class=HTMLResponse)
+async def root_landing():
     """Serve the main application"""
     html_content = """
     <!DOCTYPE html>
