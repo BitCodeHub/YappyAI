@@ -389,6 +389,63 @@ async def reset_database():
         print(f"❌ Database reset failed: {e}")
         raise HTTPException(status_code=500, detail=f"Database reset failed: {str(e)}")
 
+@app.get("/admin/list-users")
+async def list_users():
+    """List all users in database (for debugging)"""
+    try:
+        if not database.is_connected:
+            return {"error": "Database not connected", "users": []}
+        
+        query = users_table.select()
+        users = await database.fetch_all(query)
+        
+        user_list = []
+        for user in users:
+            user_list.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "password_hash": user.password_hash[:20] + "...",  # Show first 20 chars
+                "created_at": str(user.created_at),
+                "has_api_keys": bool(user.api_keys)
+            })
+        
+        return {"total_users": len(user_list), "users": user_list}
+    except Exception as e:
+        print(f"Error listing users: {e}")
+        return {"error": str(e), "users": []}
+
+@app.post("/admin/test-password")
+async def test_password(request: dict):
+    """Test password hashing (for debugging)"""
+    try:
+        username = request.get("username")
+        password = request.get("password")
+        
+        if not username or not password:
+            return {"error": "username and password required"}
+        
+        # Get user from database
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            return {"error": "User not found", "username": username}
+        
+        # Test password
+        expected_hash = hash_password(password)
+        actual_hash = user.password_hash
+        
+        return {
+            "username": username,
+            "password_provided": password,
+            "expected_hash": expected_hash,
+            "actual_hash": actual_hash,
+            "match": expected_hash == actual_hash
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/auth/register", response_model=TokenResponse)
 async def signup(user: UserSignup):
     """Create a new user account"""
