@@ -142,11 +142,25 @@ class ImprovedSearch:
         return location
     
     def _web_search(self, query: str) -> str:
-        """Perform general web search using DuckDuckGo"""
+        """Perform general web search with special handling for sports/NBA"""
+        query_lower = query.lower()
+        
+        # Special handling for NBA/sports queries
+        if any(term in query_lower for term in ['nba', 'basketball', 'game', 'playing', 'score']):
+            nba_results = self._get_nba_scores()
+            if nba_results:
+                return nba_results
+        
         try:
             from urllib.parse import quote
+            # Enhanced search query for better results
+            enhanced_query = query
+            if 'today' not in query_lower and 'now' not in query_lower:
+                if any(term in query_lower for term in ['nba', 'game', 'playing', 'president', 'news']):
+                    enhanced_query = f"{query} today {datetime.now().strftime('%Y')}"
+            
             # First try instant answers
-            ddg_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_html=1"
+            ddg_url = f"https://api.duckduckgo.com/?q={quote(enhanced_query)}&format=json&no_html=1"
             response = requests.get(ddg_url, timeout=5)
             
             results = []
@@ -163,37 +177,63 @@ class ImprovedSearch:
                 if data.get('Definition'):
                     results.append(f"Title:Definition\nSnippet:{data['Definition']}\nLink:{data.get('DefinitionURL', '')}")
                 
+                # Get instant answer type results
+                if data.get('Infobox'):
+                    info = data['Infobox']
+                    if 'content' in info:
+                        for item in info['content'][:3]:
+                            if 'label' in item and 'value' in item:
+                                results.append(f"Title:{item['label']}\nSnippet:{item['value']}\nLink:")
+                
                 # Get related topics
                 for topic in data.get('RelatedTopics', [])[:3]:
                     if isinstance(topic, dict) and topic.get('Text'):
-                        title = topic.get('Text', '').split(' - ')[0][:50] + "..."
+                        title = topic.get('Text', '').split(' - ')[0][:50]
                         results.append(f"Title:{title}\nSnippet:{topic['Text']}\nLink:{topic.get('FirstURL', '')}")
                 
                 if results:
                     return "\n\n".join(results)
             
-            # If no instant answers, try HTML search
+            # Try HTML search with better parsing
             headers = {'User-Agent': self.user_agent}
-            html_url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
+            html_url = f"https://html.duckduckgo.com/html/?q={quote(enhanced_query)}"
             response = requests.get(html_url, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 # Extract results using BeautifulSoup
                 soup = BeautifulSoup(response.text, 'html.parser')
                 
-                # Find result elements
-                for result in soup.find_all('div', class_='result', limit=5):
+                # Find all result blocks
+                result_blocks = soup.find_all('div', class_=['result', 'web-result'])
+                if not result_blocks:
+                    # Try alternative selectors
+                    result_blocks = soup.find_all('div', class_='links_main')
+                
+                for result in result_blocks[:7]:  # Get more results
                     try:
-                        # Extract title
+                        # Extract title and URL
                         title_elem = result.find('a', class_='result__a')
                         if not title_elem:
+                            title_elem = result.find('a')
+                        
+                        if not title_elem:
                             continue
+                            
                         title = title_elem.text.strip()
                         url = title_elem.get('href', '')
                         
                         # Extract snippet
                         snippet_elem = result.find('a', class_='result__snippet')
-                        snippet = snippet_elem.text.strip() if snippet_elem else "No description available"
+                        if not snippet_elem:
+                            snippet_elem = result.find('span', class_='result__snippet')
+                        if not snippet_elem:
+                            snippet_elem = result.find(text=True, recursive=True)
+                            
+                        snippet = snippet_elem.text.strip() if hasattr(snippet_elem, 'text') else str(snippet_elem).strip()
+                        
+                        # Clean up snippet
+                        if len(snippet) > 200:
+                            snippet = snippet[:200] + "..."
                         
                         # Handle DuckDuckGo's redirect URLs
                         if url.startswith('//duckduckgo.com/l/?uddg='):
@@ -203,7 +243,8 @@ class ImprovedSearch:
                             except:
                                 pass
                         
-                        results.append(f"Title:{title}\nSnippet:{snippet}\nLink:{url}")
+                        if title and snippet:
+                            results.append(f"Title:{title}\nSnippet:{snippet}\nLink:{url}")
                     except Exception as e:
                         logger.warning(f"Error parsing result: {e}")
                         continue
@@ -214,7 +255,62 @@ class ImprovedSearch:
         except Exception as e:
             logger.error(f"DuckDuckGo search error: {e}")
         
-        return "No search results found. Please try a different query or be more specific."
+        return "Search results are limited. For the most current information, please check official sources or news websites directly."
+    
+    def _get_nba_scores(self) -> str:
+        """Get NBA scores from ESPN API"""
+        try:
+            # ESPN API endpoint for NBA scores
+            today = datetime.now().strftime('%Y%m%d')
+            espn_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today}"
+            
+            response = requests.get(espn_url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                events = data.get('events', [])
+                
+                if not events:
+                    return f"Title:NBA Games Today\nSnippet:No NBA games scheduled for today ({datetime.now().strftime('%B %d, %Y')})\nLink:https://www.espn.com/nba/schedule"
+                
+                results = []
+                results.append(f"Title:NBA Games Today ({datetime.now().strftime('%B %d, %Y')})\nSnippet:Live scores and schedule\nLink:https://www.espn.com/nba/scoreboard")
+                
+                for event in events[:5]:
+                    competition = event.get('competitions', [{}])[0]
+                    competitors = competition.get('competitors', [])
+                    
+                    if len(competitors) >= 2:
+                        away_team = competitors[1]
+                        home_team = competitors[0]
+                        
+                        away_name = away_team.get('team', {}).get('displayName', 'Unknown')
+                        home_name = home_team.get('team', {}).get('displayName', 'Unknown')
+                        away_score = away_team.get('score', '0')
+                        home_score = home_team.get('score', '0')
+                        
+                        status = competition.get('status', {})
+                        game_status = status.get('type', {}).get('description', 'Scheduled')
+                        
+                        if game_status == 'Scheduled':
+                            start_time = event.get('date', '')
+                            try:
+                                from datetime import datetime
+                                game_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                                game_time_str = game_time.strftime('%I:%M %p ET')
+                                snippet = f"{away_name} @ {home_name} - {game_time_str}"
+                            except:
+                                snippet = f"{away_name} @ {home_name} - Scheduled"
+                        else:
+                            snippet = f"{away_name} {away_score} - {home_name} {home_score} ({game_status})"
+                        
+                        results.append(f"Title:NBA Game\nSnippet:{snippet}\nLink:https://www.espn.com/nba/game/_/gameId/{event.get('id', '')}")
+                
+                return "\n\n".join(results)
+                
+        except Exception as e:
+            logger.error(f"NBA scores error: {e}")
+        
+        return ""
 
 # Database configuration
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./yappy.db")
@@ -326,8 +422,14 @@ Be friendly and use dog-related expressions occasionally."""
 Web search results:
 {search_results}
 
-Based on the search results above, please provide a helpful and accurate answer.
-If the search results don't contain enough information, mention what you found and suggest the user search for more specific terms."""
+IMPORTANT: You MUST use the search results above to answer the user's question with specific, factual information.
+- If the results show NBA games, list the specific teams and scores/times
+- If the results show weather data, provide the exact temperature and conditions
+- If the results show news or current events, cite the specific information found
+- Always be specific and use the actual data from the search results
+- Do NOT give generic responses like "check ESPN" - instead, tell them what you found
+
+Based on the search results above, provide a specific, detailed answer using the actual information found."""
         
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
