@@ -267,14 +267,31 @@ class LLMHandler:
                 return response.content[0].text, response.usage.input_tokens + response.usage.output_tokens
             
             # Google Gemini
-            elif model_name == "google" and genai and api_key:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-pro')
+            elif model_name == "google" and api_key:
+                import requests
                 
-                prompt = f"{self.system_prompt}\n\nUser: {message}"
-                response = model.generate_content(prompt)
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
                 
-                return response.text, 100  # Gemini doesn't provide token count
+                payload = {
+                    "contents": [{
+                        "parts": [{
+                            "text": f"{self.system_prompt}\n\nUser: {message}"
+                        }]
+                    }]
+                }
+                
+                response = requests.post(url, json=payload)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "candidates" in data and len(data["candidates"]) > 0:
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        return text, 100  # Gemini doesn't provide token count in this format
+                    else:
+                        return "Woof! 🐕 I got a response but couldn't parse it properly.", 0
+                else:
+                    error_msg = response.json().get("error", {}).get("message", "Unknown error")
+                    return f"Woof! 🐕 Gemini API error: {error_msg}", 0
             
             # Groq
             elif model_name == "groq" and Groq and api_key:
