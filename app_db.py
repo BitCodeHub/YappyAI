@@ -648,14 +648,14 @@ async def chat(
         if request.file_data and request.file_data.get("type") == "application/pdf":
             print("PDF file upload detected")
             
-            # Process resume PDF
+            # Process PDF
             try:
                 import base64
                 import PyPDF2
                 from io import BytesIO
                 
                 file_content = request.file_data.get("content", "")
-                file_name = request.file_data.get("name", "resume.pdf")
+                file_name = request.file_data.get("name", "document.pdf")
                 
                 # Decode base64 PDF content
                 if file_content.startswith("data:application/pdf;base64,"):
@@ -666,15 +666,40 @@ async def chat(
                 pdf_reader = PyPDF2.PdfReader(pdf_file)
                 
                 # Extract text from all pages
-                resume_text = ""
-                for page_num in range(len(pdf_reader.pages)):
+                pdf_text = ""
+                total_pages = len(pdf_reader.pages)
+                for page_num in range(total_pages):
                     page = pdf_reader.pages[page_num]
-                    resume_text += page.extract_text() + "\n"
+                    pdf_text += page.extract_text() + "\n"
                 
-                print(f"Extracted {len(resume_text)} characters from PDF")
+                print(f"Extracted {len(pdf_text)} characters from {total_pages} pages")
                 
-                # Create a resume scoring prompt
-                scoring_prompt = f"""You are an experienced hiring manager. Analyze this resume and determine:
+                # Get user's API key
+                user = await database.fetch_one(
+                    users_table.select().where(users_table.c.username == username)
+                )
+                api_keys = user.api_keys if user else {}
+                api_key = api_keys.get(request.model_name)
+                
+                # First, analyze what type of document this is
+                analysis_prompt = f"""Analyze this PDF document and determine:
+1. What type of document is this? (resume, ticket, invoice, report, manual, etc.)
+2. What is the main purpose or content of the document?
+3. Provide a brief summary of the key information.
+
+User's message: {request.message}
+
+Document content (first 2000 characters):
+{pdf_text[:2000]}
+
+Based on the document type and the user's message, provide an appropriate response."""
+                
+                # Check if user specifically asked about resume/hiring
+                if any(word in request.message.lower() for word in ['resume', 'hire', 'hiring', 'candidate', 'cv', 'job']):
+                    # User explicitly wants resume analysis
+                    if any(word in pdf_text[:1000].lower() for word in ['experience', 'education', 'skills', 'employment', 'work history']):
+                        # It looks like a resume, do full resume analysis
+                        scoring_prompt = f"""You are an experienced hiring manager. Analyze this resume and determine:
 1. What position the candidate is applying for (based on their experience and the resume content)
 2. Their years of relevant experience
 3. Whether to HIRE or NOT HIRE based on their qualifications
@@ -713,25 +738,40 @@ IMPORTANT: Format your response EXACTLY as follows:
 [If NOT HIRE: What they need to improve to be considered]
 
 Resume content to analyze:
-{resume_text[:4000]}"""
-                
-                # Get user's API key
-                user = await database.fetch_one(
-                    users_table.select().where(users_table.c.username == username)
-                )
-                api_keys = user.api_keys if user else {}
-                api_key = api_keys.get(request.model_name)
-                
-                # Get LLM response for resume scoring
-                response_text, tokens = await llm_handler.get_response(
-                    scoring_prompt,
-                    request.model_name,
-                    api_key,
-                    []
-                )
-                
-                # Format the final response
-                final_response = f"""📄 **Resume Analysis for {file_name}**
+{pdf_text[:4000]}"""
+                        
+                        response_text, tokens = await llm_handler.get_response(
+                            scoring_prompt,
+                            request.model_name,
+                            api_key,
+                            []
+                        )
+                        
+                        final_response = f"""📄 **Resume Analysis for {file_name}**
+
+{response_text}"""
+                    else:
+                        # User asked about resume but document doesn't appear to be one
+                        response_text = f"I notice you asked about resume/hiring analysis, but this document doesn't appear to be a resume. It seems to be a {file_name}. The document contains:\n\n"
+                        
+                        analysis_response, tokens = await llm_handler.get_response(
+                            analysis_prompt,
+                            request.model_name,
+                            api_key,
+                            []
+                        )
+                        
+                        final_response = response_text + analysis_response
+                else:
+                    # General document analysis based on content and user's question
+                    response_text, tokens = await llm_handler.get_response(
+                        analysis_prompt,
+                        request.model_name,
+                        api_key,
+                        []
+                    )
+                    
+                    final_response = f"""📄 **Analysis of {file_name}**
 
 {response_text}"""
                 
