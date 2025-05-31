@@ -51,71 +51,170 @@ try:
 except ImportError:
     Groq = None
 
-# SearxNG Search Implementation (matching local app's searxSearch.py)
-class SearxSearch:
+# Improved Search Implementation with weather support
+class ImprovedSearch:
     def __init__(self):
-        self.base_url = os.getenv("SEARXNG_BASE_URL", "https://search.ononoki.org")
-        self.user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-        
-    def execute(self, query: str) -> str:
-        """Execute search matching local app's format"""
-        search_url = f"{self.base_url}/search"
-        headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': self.user_agent
-        }
-        data = f"q={query}&categories=general&language=auto&time_range=&safesearch=0&theme=simple".encode('utf-8')
-        
-        try:
-            response = requests.post(search_url, headers=headers, data=data, verify=False, timeout=10)
-            response.raise_for_status()
-            html_content = response.text
-            soup = BeautifulSoup(html_content, 'html.parser')
-            results = []
-            
-            for article in soup.find_all('article', class_='result'):
-                url_header = article.find('a', class_='url_header')
-                if url_header:
-                    url = url_header['href']
-                    title = article.find('h3').text.strip() if article.find('h3') else "No Title"
-                    description = article.find('p', class_='content').text.strip() if article.find('p', class_='content') else "No Description"
-                    results.append(f"Title:{title}\nSnippet:{description}\nLink:{url}")
-            
-            if len(results) == 0:
-                # Fallback to other search methods
-                return self._fallback_search(query)
-                
-            return "\n\n".join(results)
-        except Exception as e:
-            logger.error(f"SearxNG search failed: {e}")
-            return self._fallback_search(query)
+        self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     
-    def _fallback_search(self, query: str) -> str:
-        """Fallback search methods"""
+    def execute(self, query: str) -> str:
+        """Execute search with smart routing"""
+        query_lower = query.lower()
+        
+        # Check if it's a weather query
+        if 'weather' in query_lower or 'temperature' in query_lower or 'forecast' in query_lower:
+            return self._get_weather_data(query)
+        
+        # For other queries, try web search
+        return self._web_search(query)
+    
+    def _get_weather_data(self, query: str) -> str:
+        """Get weather data directly from wttr.in"""
+        # Extract location from query
+        location = self._extract_location(query)
+        
         try:
-            # Try DuckDuckGo instant answers
             from urllib.parse import quote
-            ddg_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_html=1"
-            response = requests.get(ddg_url, timeout=5)
+            # Use wttr.in API which doesn't require authentication
+            weather_url = f"https://wttr.in/{quote(location)}?format=j1"
+            response = requests.get(weather_url, timeout=10, headers={'User-Agent': self.user_agent})
             
             if response.status_code == 200:
                 data = response.json()
-                results = []
+                current = data.get('current_condition', [{}])[0]
+                location_data = data.get('nearest_area', [{}])[0]
                 
-                if data.get('Abstract'):
-                    results.append(f"Title:Summary\nSnippet:{data['Abstract']}\nLink:{data.get('AbstractURL', '')}")
+                # Format location
+                city = location_data.get('areaName', [{}])[0].get('value', location)
+                region = location_data.get('region', [{}])[0].get('value', '')
+                country = location_data.get('country', [{}])[0].get('value', '')
+                
+                # Format weather data
+                result = f"Title:Current Weather in {city}, {region}\n"
+                result += f"Snippet:Temperature: {current.get('temp_F', 'N/A')}°F ({current.get('temp_C', 'N/A')}°C)\n"
+                result += f"Feels like: {current.get('FeelsLikeF', 'N/A')}°F ({current.get('FeelsLikeC', 'N/A')}°C)\n"
+                result += f"Condition: {current.get('weatherDesc', [{}])[0].get('value', 'N/A')}\n"
+                result += f"Humidity: {current.get('humidity', 'N/A')}%\n"
+                result += f"Wind: {current.get('windspeedMiles', 'N/A')} mph {current.get('winddir16Point', '')}\n"
+                result += f"UV Index: {current.get('uvIndex', 'N/A')}\n"
+                result += f"Visibility: {current.get('visibility', 'N/A')} miles\n"
+                result += f"Pressure: {current.get('pressure', 'N/A')} mb"
+                result += f"\nLink:https://wttr.in/{quote(location)}"
+                
+                # Add forecast
+                forecast_data = []
+                weather = data.get('weather', [])
+                for i, day in enumerate(weather[:3]):  # Next 3 days
+                    date = day.get('date', '')
+                    max_temp = day.get('maxtempF', 'N/A')
+                    min_temp = day.get('mintempF', 'N/A')
+                    desc = day.get('hourly', [{}])[4].get('weatherDesc', [{}])[0].get('value', 'N/A') if day.get('hourly') else 'N/A'
+                    forecast_data.append(f"Day {i+1} ({date}): High {max_temp}°F, Low {min_temp}°F - {desc}")
+                
+                if forecast_data:
+                    result += f"\n\nTitle:3-Day Forecast\nSnippet:" + "\n".join(forecast_data)
+                    result += "\nLink:"
+                
+                return result
+                
+        except Exception as e:
+            logger.error(f"Weather API error: {e}")
+        
+        # Fallback to web search for weather
+        return self._web_search(query)
+    
+    def _extract_location(self, query: str) -> str:
+        """Extract location from weather query"""
+        # Remove common words
+        query = query.lower()
+        query = query.replace("what's the", "").replace("what is the", "")
+        query = query.replace("how's the", "").replace("how is the", "")
+        query = query.replace("weather", "").replace("temperature", "")
+        query = query.replace("forecast", "").replace("in", "").replace("at", "")
+        query = query.replace("?", "").strip()
+        
+        # Clean up extra spaces
+        location = " ".join(query.split())
+        
+        # Default to a location if empty
+        if not location:
+            location = "New York"
+        
+        return location
+    
+    def _web_search(self, query: str) -> str:
+        """Perform general web search using DuckDuckGo"""
+        try:
+            from urllib.parse import quote
+            # First try instant answers
+            ddg_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_html=1"
+            response = requests.get(ddg_url, timeout=5)
+            
+            results = []
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check various answer types
+                if data.get('AbstractText'):
+                    results.append(f"Title:Summary\nSnippet:{data['AbstractText']}\nLink:{data.get('AbstractURL', '')}")
                 
                 if data.get('Answer'):
                     results.append(f"Title:Quick Answer\nSnippet:{data['Answer']}\nLink:")
                 
+                if data.get('Definition'):
+                    results.append(f"Title:Definition\nSnippet:{data['Definition']}\nLink:{data.get('DefinitionURL', '')}")
+                
+                # Get related topics
+                for topic in data.get('RelatedTopics', [])[:3]:
+                    if isinstance(topic, dict) and topic.get('Text'):
+                        title = topic.get('Text', '').split(' - ')[0][:50] + "..."
+                        results.append(f"Title:{title}\nSnippet:{topic['Text']}\nLink:{topic.get('FirstURL', '')}")
+                
                 if results:
                     return "\n\n".join(results)
+            
+            # If no instant answers, try HTML search
+            headers = {'User-Agent': self.user_agent}
+            html_url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
+            response = requests.get(html_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                # Extract results using BeautifulSoup
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Find result elements
+                for result in soup.find_all('div', class_='result', limit=5):
+                    try:
+                        # Extract title
+                        title_elem = result.find('a', class_='result__a')
+                        if not title_elem:
+                            continue
+                        title = title_elem.text.strip()
+                        url = title_elem.get('href', '')
+                        
+                        # Extract snippet
+                        snippet_elem = result.find('a', class_='result__snippet')
+                        snippet = snippet_elem.text.strip() if snippet_elem else "No description available"
+                        
+                        # Handle DuckDuckGo's redirect URLs
+                        if url.startswith('//duckduckgo.com/l/?uddg='):
+                            try:
+                                from urllib.parse import unquote
+                                url = unquote(url.split('uddg=')[1].split('&')[0])
+                            except:
+                                pass
+                        
+                        results.append(f"Title:{title}\nSnippet:{snippet}\nLink:{url}")
+                    except Exception as e:
+                        logger.warning(f"Error parsing result: {e}")
+                        continue
+                
+                if results:
+                    return "\n\n".join(results)
+                    
         except Exception as e:
-            logger.error(f"Fallback search error: {e}")
+            logger.error(f"DuckDuckGo search error: {e}")
         
-        return "No search results found. Please try a different query."
+        return "No search results found. Please try a different query or be more specific."
 
 # Database configuration
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./yappy.db")
@@ -205,7 +304,7 @@ class BrowserAgent:
     """Browser agent with web search capabilities"""
     
     def __init__(self):
-        self.searx_tool = SearxSearch()
+        self.searx_tool = ImprovedSearch()
         self.date = datetime.now().strftime("%B %d, %Y")
         
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
