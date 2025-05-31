@@ -1557,7 +1557,13 @@
                 if (uploadedFile) {
                     userMessage += `\n\n📎 Attached: ${uploadedFile.name} (${uploadedFile.type})`;
                 }
-                setMessages((prev) => [...prev, { type: 'user', content: userMessage }]);
+                // Ensure message content is a string
+                const safeUserMessage = String(userMessage || '');
+                setMessages((prev) => [...prev, { 
+                    type: 'user', 
+                    content: safeUserMessage,
+                    timestamp: new Date().toISOString()
+                }]);
                 scrollToBottom();
                 setIsLoading(true);
                 setError(null);
@@ -1799,7 +1805,7 @@
                                                 )}
                                                 {msg.type === 'agent' && msg.reasoning && expandedReasoning.has(index) && (
                                                     <div className="reasoning-content">
-                                                        <ReactMarkdown>{msg.reasoning}</ReactMarkdown>
+                                                        <ReactMarkdown>{String(msg.reasoning || '')}</ReactMarkdown>
                                                     </div>
                                                 )}
                                                 {msg.type === 'agent' && (
@@ -1818,12 +1824,14 @@
                                                 )}
                                                 <div className="message-content">
                                                     {(() => {
+                                                        // Ensure content is a string
+                                                        const safeContent = String(msg.content || '');
                                                         const base64ImageRegex = /!\[([^\]]*)\]\((data:image\/png;base64,[^)]+)\)/g;
                                                         const images = [];
                                                         let match;
-                                                        let contentWithoutImages = msg.content;
+                                                        let contentWithoutImages = safeContent;
                                                         
-                                                        while ((match = base64ImageRegex.exec(msg.content)) !== null) {
+                                                        while ((match = base64ImageRegex.exec(safeContent)) !== null) {
                                                             images.push({
                                                                 alt: match[1] || 'Chart',
                                                                 src: match[2]
@@ -1847,7 +1855,7 @@
                                                                     </div>
                                                                 )}
                                                                 <div className={contentWithoutImages.length > 500 ? "long-text-content" : ""}>
-                                                                    <ReactMarkdown>{contentWithoutImages}</ReactMarkdown>
+                                                                    <ReactMarkdown>{contentWithoutImages || ''}</ReactMarkdown>
                                                                 </div>
                                                                 {images.map((img, idx) => (
                                                                     <div key={idx} style={{margin: '20px 0', textAlign: 'center'}}>
