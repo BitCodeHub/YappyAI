@@ -360,7 +360,22 @@ Remember to be friendly and maintain your Yappy personality! 🐕"""
             
             elif model_name == "google" and genai:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.0-flash-latest')
+                # Try different model names based on availability
+                model = None
+                model_names = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro', 'gemini-2.0-flash']
+                
+                for model_name_try in model_names:
+                    try:
+                        model = genai.GenerativeModel(model_name_try)
+                        logger.info(f"Using Gemini model: {model_name_try}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Model {model_name_try} not available: {e}")
+                        continue
+                
+                if not model:
+                    # Default fallback
+                    model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # Build prompt with history
                 full_prompt = system_prompt + "\n\n"
