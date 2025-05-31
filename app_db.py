@@ -668,13 +668,22 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         
         # Update conversation
         conversation_messages.append(message_data)
-        update_query = conversations_table.update().where(
-            conversations_table.c.id == conv_id
-        ).values(
-            messages=conversation_messages,
-            updated_at=datetime.now()
-        )
-        await database.execute(update_query)
+        # Update conversation - handle missing updated_at column
+        try:
+            update_query = conversations_table.update().where(
+                conversations_table.c.id == conv_id
+            ).values(
+                messages=conversation_messages,
+                updated_at=datetime.now()
+            )
+            await database.execute(update_query)
+        except Exception as e:
+            # Fallback if updated_at column doesn't exist
+            logger.warning(f"Updated_at column issue: {e}")
+            update_query = conversations_table.update().where(
+                conversations_table.c.id == conv_id
+            ).values(messages=conversation_messages)
+            await database.execute(update_query)
         
         return ChatResponse(
             response=response_text,
@@ -745,7 +754,7 @@ async def get_conversations(username: str = Depends(verify_token)):
                 "id": conv.id,
                 "title": conv.title,
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "updated_at": conv.updated_at.isoformat() if hasattr(conv, 'updated_at') and conv.updated_at else None,
+                "updated_at": conv.updated_at.isoformat() if hasattr(conv, 'updated_at') and conv.updated_at else conv.created_at.isoformat(),
                 "message_count": len(messages),
                 "last_message": last_message.get("user_message") if last_message else None,
                 "last_agent": last_message.get("agent_type", "casual") if last_message else None
