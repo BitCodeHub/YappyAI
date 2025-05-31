@@ -1,10 +1,14 @@
+"""
+Yappy AI Assistant - Final Version with Agent Routing and SearxNG Search
+Implements the exact web search functionality from the local AgenticSeek app
+"""
 import os
 import json
 import uuid
 import hashlib
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
@@ -18,6 +22,12 @@ from databases import Database
 import sqlalchemy
 from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, Text, JSON
 import re
+import requests
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Import all LLM libraries
 try:
@@ -40,17 +50,134 @@ try:
 except ImportError:
     Groq = None
 
-# Database configuration
-print("Environment variables:")
-print(f"DATABASE_URL from env: {os.environ.get('DATABASE_URL', 'NOT SET')[:50]}...")
-print(f"Current date: {datetime.now().strftime('%B %d, %Y')}")
+# SearxNG Search Implementation (from local app)
+class SearxSearch:
+    def __init__(self):
+        # Use multiple SearxNG instances for reliability
+        self.searx_instances = [
+            "https://search.ononoki.org",
+            "https://searx.be",
+            "https://searx.info",
+            "https://searx.xyz"
+        ]
+        self.timeout = 10
+    
+    def search(self, query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+        """Search using SearxNG instances"""
+        for instance in self.searx_instances:
+            try:
+                params = {
+                    'q': query,
+                    'format': 'json',
+                    'language': 'en',
+                    'safesearch': '0',
+                    'categories': 'general'
+                }
+                
+                response = requests.get(
+                    f"{instance}/search",
+                    params=params,
+                    timeout=self.timeout,
+                    headers={'User-Agent': 'Yappy/1.0'}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    results = []
+                    
+                    for result in data.get('results', [])[:num_results]:
+                        results.append({
+                            'title': result.get('title', ''),
+                            'snippet': result.get('content', ''),
+                            'link': result.get('url', ''),
+                            'engine': result.get('engine', 'unknown')
+                        })
+                    
+                    if results:
+                        logger.info(f"Found {len(results)} results from {instance}")
+                        return results
+                        
+            except Exception as e:
+                logger.warning(f"SearxNG instance {instance} failed: {e}")
+                continue
+        
+        # Fallback to DuckDuckGo instant answer API
+        return self._duckduckgo_fallback(query)
+    
+    def _duckduckgo_fallback(self, query: str) -> List[Dict[str, Any]]:
+        """Fallback search using DuckDuckGo"""
+        try:
+            from urllib.parse import quote
+            
+            # Try instant answer API first
+            ddg_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_html=1"
+            response = requests.get(ddg_url, timeout=5)
+            
+            results = []
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Get instant answer
+                if data.get('Abstract'):
+                    results.append({
+                        'title': 'Summary',
+                        'snippet': data['Abstract'],
+                        'link': data.get('AbstractURL', ''),
+                        'engine': 'duckduckgo'
+                    })
+                
+                if data.get('Answer'):
+                    results.append({
+                        'title': 'Quick Answer',
+                        'snippet': data['Answer'],
+                        'link': '',
+                        'engine': 'duckduckgo'
+                    })
+                
+                # Related topics
+                for topic in data.get('RelatedTopics', [])[:3]:
+                    if isinstance(topic, dict) and 'Text' in topic:
+                        results.append({
+                            'title': topic.get('FirstURL', '').split('/')[-1].replace('_', ' '),
+                            'snippet': topic['Text'],
+                            'link': topic.get('FirstURL', ''),
+                            'engine': 'duckduckgo'
+                        })
+            
+            # If no instant answers, try HTML search
+            if not results:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+                response = requests.get(f"https://html.duckduckgo.com/html/?q={quote(query)}", 
+                                       headers=headers, timeout=5)
+                
+                if response.status_code == 200:
+                    # Simple regex to extract results
+                    import re
+                    pattern = r'<a class="result__a" href="([^"]+)"[^>]*>([^<]+)</a>.*?<a class="result__snippet"[^>]*>([^<]+)</a>'
+                    matches = re.findall(pattern, response.text, re.DOTALL)
+                    
+                    for match in matches[:5]:
+                        results.append({
+                            'title': match[1].strip(),
+                            'snippet': match[2].strip(),
+                            'link': match[0],
+                            'engine': 'duckduckgo'
+                        })
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"DuckDuckGo fallback failed: {e}")
+            return []
 
+# Database configuration
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./yappy.db")
 
-# Fix for Render PostgreSQL URLs (they use postgres:// but we need postgresql://)
+# Fix for Render PostgreSQL URLs
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    print(f"Converted to: {DATABASE_URL[:50]}...")
 
 database = Database(DATABASE_URL)
 metadata = MetaData()
@@ -76,48 +203,232 @@ conversations_table = Table(
     Column("title", String(200)),
     Column("messages", JSON, default=[]),
     Column("created_at", DateTime, default=datetime.now),
+    Column("updated_at", DateTime, default=datetime.now, onupdate=datetime.now)
 )
 
-engine = sqlalchemy.create_engine(DATABASE_URL)
+# Agent Router Implementation
+class AgentRouter:
+    """Routes queries to appropriate agents based on content"""
+    
+    def analyze_query(self, query: str, conversation_history: List[Dict] = None) -> Tuple[str, bool]:
+        """
+        Analyze query and determine if it needs web search
+        Returns: (agent_type, needs_web_search)
+        """
+        query_lower = query.lower()
+        
+        # Always search for these patterns (from local app)
+        web_search_patterns = [
+            # Current events/facts
+            'who is', 'what is', 'when is', 'where is', 'how much', 'how many',
+            'latest', 'current', 'today', 'now', 'recent', 'news', 'update',
+            # People and organizations
+            'president', 'ceo', 'founder', 'leader', 'minister', 'director',
+            'company', 'organization', 'government', 'country',
+            # Weather
+            'weather', 'temperature', 'forecast', 'rain', 'snow',
+            # Sports/Events
+            'game', 'score', 'match', 'playing', 'nba', 'nfl', 'sports',
+            # Financial
+            'price', 'stock', 'crypto', 'bitcoin', 'market',
+            # Search indicators
+            'search', 'find', 'look up', 'check'
+        ]
+        
+        # Check if query needs web search
+        needs_search = any(pattern in query_lower for pattern in web_search_patterns)
+        
+        # Also search for questions
+        if query.strip().endswith('?'):
+            question_words = ['what', 'who', 'when', 'where', 'how', 'which', 'why', 'is', 'are', 'do', 'does']
+            if any(query_lower.startswith(word) for word in question_words):
+                needs_search = True
+        
+        # Determine agent type
+        if needs_search:
+            return "browser", True
+        else:
+            return "casual", False
 
-# Lifespan context manager
+# LLM Handler
+class LLMHandler:
+    """Handles all LLM interactions with Yappy personality"""
+    
+    def __init__(self):
+        self.searx_tool = SearxSearch()
+        self.agent_router = AgentRouter()
+        
+    async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
+                          conversation_history: List[Dict] = None) -> Tuple[str, int]:
+        """Get response from LLM with web search when needed"""
+        
+        # Route query
+        agent_type, needs_search = self.agent_router.analyze_query(prompt, conversation_history)
+        
+        # Perform web search if needed
+        web_context = ""
+        if needs_search:
+            logger.info(f"Performing web search for: {prompt}")
+            search_results = self.searx_tool.search(prompt)
+            
+            if search_results:
+                web_context = "\n\nWeb Search Results:\n"
+                for i, result in enumerate(search_results, 1):
+                    web_context += f"\n{i}. {result['title']}"
+                    if result['snippet']:
+                        web_context += f"\n   {result['snippet']}"
+                    if result['link']:
+                        web_context += f"\n   Source: {result['link']}"
+                    web_context += "\n"
+                
+                logger.info(f"Found {len(search_results)} search results")
+        
+        # Prepare system prompt based on agent type
+        if agent_type == "browser" and web_context:
+            system_prompt = """You are Yappy 🐕, a friendly AI assistant with real-time web access!
+You MUST use the provided search results to give accurate, current information.
+Always cite the search results when answering factual questions.
+Today's date is """ + datetime.now().strftime('%B %d, %Y') + "."
+        else:
+            system_prompt = """You are Yappy 🐕, a friendly and enthusiastic AI assistant!
+Be cheerful and helpful. Use dog-related expressions occasionally (like "Woof!" or "*wags tail*").
+Always aim to brighten the user's day with your positive energy!"""
+        
+        # Build enhanced prompt
+        enhanced_prompt = prompt
+        if web_context:
+            enhanced_prompt = f"""User Question: {prompt}
+
+{web_context}
+
+Based on the search results above, please provide an accurate answer.
+Remember to be friendly and maintain your Yappy personality! 🐕"""
+        
+        # Call LLM
+        try:
+            if not api_key:
+                responses = [
+                    "Woof! 🐕 I need an API key to search the web and give you the latest information! Please add one in your profile.",
+                    "*tilts head* 🐕 I'd love to fetch that information for you, but I need an API key first! Add one in your profile settings.",
+                    "Ruff! 🐕 My web search abilities are locked without an API key. Add one to unlock my full potential!"
+                ]
+                import random
+                return random.choice(responses), 0
+            
+            if model_name == "openai" and openai:
+                client = openai.OpenAI(api_key=api_key)
+                
+                messages = [{"role": "system", "content": system_prompt}]
+                
+                # Add conversation history
+                if conversation_history:
+                    for msg in conversation_history[-5:]:  # Last 5 messages
+                        messages.append({"role": "user", "content": msg.get("user_message", "")})
+                        messages.append({"role": "assistant", "content": msg.get("assistant_response", "")})
+                
+                messages.append({"role": "user", "content": enhanced_prompt})
+                
+                response = client.chat.completions.create(
+                    model="gpt-4" if "gpt-4" in api_key else "gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                return response.choices[0].message.content, response.usage.total_tokens
+            
+            elif model_name == "anthropic" and anthropic:
+                client = anthropic.Anthropic(api_key=api_key)
+                
+                # Build conversation for Claude
+                messages = []
+                if conversation_history:
+                    for msg in conversation_history[-5:]:
+                        messages.append({"role": "user", "content": msg.get("user_message", "")})
+                        messages.append({"role": "assistant", "content": msg.get("assistant_response", "")})
+                
+                messages.append({"role": "user", "content": enhanced_prompt})
+                
+                response = client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    system=system_prompt,
+                    messages=messages,
+                    max_tokens=1000
+                )
+                
+                return response.content[0].text, response.usage.input_tokens + response.usage.output_tokens
+            
+            elif model_name == "google" and genai:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-pro')
+                
+                # Build prompt with history
+                full_prompt = system_prompt + "\n\n"
+                if conversation_history:
+                    for msg in conversation_history[-5:]:
+                        full_prompt += f"User: {msg.get('user_message', '')}\n"
+                        full_prompt += f"Assistant: {msg.get('assistant_response', '')}\n"
+                
+                full_prompt += f"User: {enhanced_prompt}\nAssistant:"
+                
+                response = model.generate_content(full_prompt)
+                return response.text, 100
+            
+            elif model_name == "groq" and Groq:
+                client = Groq(api_key=api_key)
+                
+                messages = [{"role": "system", "content": system_prompt}]
+                if conversation_history:
+                    for msg in conversation_history[-5:]:
+                        messages.append({"role": "user", "content": msg.get("user_message", "")})
+                        messages.append({"role": "assistant", "content": msg.get("assistant_response", "")})
+                
+                messages.append({"role": "user", "content": enhanced_prompt})
+                
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                return response.choices[0].message.content, response.usage.total_tokens
+            
+            else:
+                return f"Woof! 🐕 The {model_name} model isn't available. Try another one!", 0
+                
+        except Exception as e:
+            logger.error(f"LLM Error: {e}")
+            return f"Woof! 🐕 I encountered an error: {str(e)}", 0
+
+# FastAPI app setup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup - Connect to database
-    print("🐕 Woof! Yappy AI v4 with Context Awareness is starting up...")
+    # Startup
+    print("🐕 Woof! Yappy AI with SearxNG Search is starting up...")
     print(f"Current date: {datetime.now().strftime('%A, %B %d, %Y')}")
-    print(f"Database URL: {DATABASE_URL[:50]}...")
-    print(f"Database type: {'PostgreSQL' if 'postgresql' in DATABASE_URL else 'SQLite'}")
     
     try:
         await database.connect()
         print("✅ Database connected successfully")
         
         # Create tables if they don't exist
+        engine = sqlalchemy.create_engine(DATABASE_URL)
         metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
-        print("⚠️ Will continue with limited functionality")
     
     yield
     
     # Shutdown
-    try:
+    print("🐕 Yappy is shutting down... Goodbye!")
+    if database.is_connected:
         await database.disconnect()
-        print("🐕 Yappy AI is shutting down... Goodbye!")
-    except:
-        pass
 
-# Initialize FastAPI
-app = FastAPI(
-    title="Yappy AI with Context Awareness",
-    description="Your friendly AI assistant with memory and real-time data",
-    version="4.0.0",
-    lifespan=lifespan
-)
+app = FastAPI(title="Yappy AI Assistant", version="6.0.0", lifespan=lifespan)
 
-# CORS
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -126,26 +437,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files if they exist
+# Static files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
-    print(f"Mounting static directory: {static_dir}")
-    print(f"Static files: {os.listdir(static_dir)}")
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-else:
-    print(f"Warning: Static directory not found at {static_dir}")
 
 # Security
-security = HTTPBearer(auto_error=False)
+security = HTTPBearer()
 
 # Pydantic models
-class UserSignup(BaseModel):
-    username: str
-    password: str
-    email: Optional[str] = None
-
 class UserLogin(BaseModel):
     username: str
+    password: str
+
+class UserSignup(BaseModel):
+    username: str
+    email: str
     password: str
 
 class UpdateApiKey(BaseModel):
@@ -157,7 +464,6 @@ class ChatRequest(BaseModel):
     model_name: Optional[str] = "openai"
     conversation_id: Optional[str] = None
     stream: Optional[bool] = False
-    file_data: Optional[Dict[str, Any]] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -166,6 +472,7 @@ class ChatResponse(BaseModel):
     timestamp: str
     model_used: str
     tokens_used: Optional[int] = None
+    had_web_search: Optional[bool] = False
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -176,7 +483,7 @@ class TokenResponse(BaseModel):
 # Helper functions
 def hash_password(password: str) -> str:
     """Hash password with salt"""
-    salt = "yappy_salt_2024"  # In production, use unique salt per user
+    salt = "yappy_salt_2024"
     return hashlib.sha256(f"{password}{salt}".encode()).hexdigest()
 
 def create_token(username: str) -> str:
@@ -194,407 +501,35 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         
         # Check if database is connected
         if not database.is_connected:
-            print("⚠️ Database not connected during token verification")
-            return username  # Allow access if DB is down
+            return username
         
-        # Verify user exists in database
+        # Verify user exists
         query = users_table.select().where(users_table.c.username == username)
         user = await database.fetch_one(query)
         if not user:
-            print(f"⚠️ User {username} not found in database")
-            return username  # Still allow access for now
+            return username  # Allow access for now
         
         return username
     except Exception as e:
-        print(f"Token verification error: {e}")
-        # Extract username from token for emergency access
+        logger.error(f"Token verification error: {e}")
         try:
             return credentials.credentials.split(":")[0]
         except:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-# Context extraction helper
-def extract_context_from_messages(messages: List[Dict], current_query: str) -> Dict[str, Any]:
-    """Extract context from previous messages"""
-    context = {
-        "location": None,
-        "topic": None,
-        "previous_query": None,
-        "previous_response": None
-    }
-    
-    if not messages:
-        return context
-    
-    # Look at last 3 messages
-    recent = messages[-3:] if len(messages) > 3 else messages
-    
-    for msg in recent:
-        user_msg = msg.get("user_message", "").lower()
-        assistant_response = msg.get("assistant_response", "").lower()
-        
-        # Extract location from weather queries
-        if "weather" in user_msg:
-            loc_match = re.search(r'weather (?:in |at |for )?([\w\s,]+?)(?:\?|$)', user_msg, re.IGNORECASE)
-            if loc_match:
-                context["location"] = loc_match.group(1).strip()
-                context["topic"] = "weather"
-        
-        # Extract location from assistant response too
-        if "weather in" in assistant_response:
-            loc_match = re.search(r'weather in ([\w\s,]+)', assistant_response, re.IGNORECASE)
-            if loc_match:
-                context["location"] = loc_match.group(1).strip()
-                context["topic"] = "weather"
-        
-        # Track NBA/sports queries
-        if any(word in user_msg for word in ["nba", "basketball", "game", "score"]):
-            context["topic"] = "nba"
-        
-        # Track crypto queries
-        if any(word in user_msg for word in ["btc", "bitcoin", "crypto", "ethereum"]):
-            context["topic"] = "crypto"
-    
-    # Get previous query and response
-    if messages:
-        context["previous_query"] = messages[-1].get("user_message", "")
-        context["previous_response"] = messages[-1].get("assistant_response", "")
-    
-    return context
-
-# Enhanced web search with context
-async def search_with_context(query: str, context: Dict[str, Any]) -> str:
-    """Perform context-aware web search"""
-    import requests
-    from urllib.parse import quote
-    
-    web_results = []
-    
-    # Handle follow-up queries
-    if context.get("topic") == "weather" and context.get("location"):
-        # Check for forecast queries
-        if any(word in query.lower() for word in ["7 day", "forecast", "next", "week", "days"]):
-            location = context["location"]
-            try:
-                weather_url = f"https://wttr.in/{quote(location)}?format=j1"
-                response = requests.get(weather_url, timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    forecast = data.get("weather", [])
-                    
-                    result = f"7-Day Weather Forecast for {location}:\n"
-                    result += f"(Today is {datetime.now().strftime('%A, %B %d, %Y')})\n\n"
-                    
-                    for i, day in enumerate(forecast[:7]):
-                        date = day.get("date", "")
-                        max_temp = day.get("maxtempF", "N/A")
-                        min_temp = day.get("mintempF", "N/A")
-                        hourly = day.get("hourly", [])
-                        desc = hourly[4].get("weatherDesc", [{}])[0].get("value", "N/A") if len(hourly) > 4 else "N/A"
-                        
-                        try:
-                            date_obj = datetime.strptime(date, "%Y-%m-%d")
-                            day_name = date_obj.strftime("%A, %B %d")
-                        except:
-                            day_name = f"Day {i+1}"
-                        
-                        result += f"{day_name}: High {max_temp}°F, Low {min_temp}°F - {desc}\n"
-                    
-                    web_results.append(result)
-                    return "\n".join(web_results)
-            except Exception as e:
-                print(f"Forecast error: {e}")
-    
-    # Regular weather search
-    if "weather" in query.lower():
-        try:
-            # Extract location from query
-            location = "New York"  # Default
-            loc_match = re.search(r'weather (?:in |at |for )?([\w\s,]+?)(?:\?|$)', query, re.IGNORECASE)
-            if loc_match:
-                location = loc_match.group(1).strip()
-            
-            weather_url = f"https://wttr.in/{quote(location)}?format=j1"
-            response = requests.get(weather_url, timeout=5)
-            
-            if response.status_code == 200:
-                data = response.json()
-                current = data.get("current_condition", [{}])[0]
-                
-                result = f"Current Weather in {location}:\n"
-                result += f"Temperature: {current.get('temp_F', 'N/A')}°F ({current.get('temp_C', 'N/A')}°C)\n"
-                result += f"Feels like: {current.get('FeelsLikeF', 'N/A')}°F ({current.get('FeelsLikeC', 'N/A')}°C)\n"
-                result += f"Condition: {current.get('weatherDesc', [{}])[0].get('value', 'N/A')}\n"
-                result += f"Humidity: {current.get('humidity', 'N/A')}%\n"
-                result += f"Wind: {current.get('windspeedMiles', 'N/A')} mph"
-                
-                web_results.append(result)
-        except Exception as e:
-            print(f"Weather search error: {e}")
-    
-    # NBA/Sports queries
-    if any(word in query.lower() for word in ["nba", "basketball", "game", "score", "playing"]):
-        try:
-            nba_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-            response = requests.get(nba_url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                events = data.get("events", [])
-                
-                result = f"NBA Games Today ({datetime.now().strftime('%B %d, %Y')}):\n\n"
-                
-                if not events:
-                    result += "No games scheduled today.\n"
-                else:
-                    for event in events[:5]:
-                        competitions = event.get("competitions", [{}])[0]
-                        competitors = competitions.get("competitors", [])
-                        
-                        if len(competitors) >= 2:
-                            team1 = competitors[0].get("team", {}).get("displayName", "")
-                            score1 = competitors[0].get("score", "0")
-                            team2 = competitors[1].get("team", {}).get("displayName", "")
-                            score2 = competitors[1].get("score", "0")
-                            status = event.get("status", {}).get("type", {}).get("description", "")
-                            
-                            result += f"{team1} vs {team2}\n"
-                            if status == "Final":
-                                result += f"Final: {score1} - {score2}\n"
-                                winner = team1 if int(score1) > int(score2) else team2
-                                result += f"Winner: {winner}\n\n"
-                            elif "In Progress" in status:
-                                result += f"Live: {score1} - {score2} ({status})\n\n"
-                            else:
-                                result += f"Status: {status}\n\n"
-                
-                web_results.append(result)
-        except Exception as e:
-            print(f"NBA search error: {e}")
-    
-    # Bitcoin/Crypto queries
-    if any(word in query.lower() for word in ["btc", "bitcoin", "crypto", "eth", "ethereum", "price"]):
-        try:
-            crypto_url = "https://api.coinbase.com/v2/exchange-rates?currency=USD"
-            response = requests.get(crypto_url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                rates = data.get("data", {}).get("rates", {})
-                
-                btc_price = 1 / float(rates.get("BTC", 1))
-                eth_price = 1 / float(rates.get("ETH", 1))
-                
-                result = f"Current Cryptocurrency Prices:\n"
-                result += f"Bitcoin (BTC): ${btc_price:,.2f} USD\n"
-                result += f"Ethereum (ETH): ${eth_price:,.2f} USD\n"
-                result += f"(Live prices from Coinbase)"
-                
-                web_results.append(result)
-        except Exception as e:
-            print(f"Crypto search error: {e}")
-    
-    # For president/government queries, force a search
-    if any(word in query.lower() for word in ["president", "prime minister", "leader", "government"]):
-        try:
-            # Add current year to get latest info
-            search_query = f"{query} 2024 2025 current"
-            ddg_url = f"https://api.duckduckgo.com/?q={quote(search_query)}&format=json&no_html=1"
-            response = requests.get(ddg_url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                
-                if data.get("Abstract"):
-                    web_results.append(f"Current Information: {data['Abstract']}")
-                if data.get("Answer"):
-                    web_results.append(f"Direct Answer: {data['Answer']}")
-                    
-                # Also try instant answer
-                if data.get("Heading"):
-                    web_results.append(f"Topic: {data['Heading']}")
-                    
-                # Try to get infobox data
-                if data.get("Infobox") and isinstance(data["Infobox"], dict):
-                    content = data["Infobox"].get("content", [])
-                    for item in content[:5]:
-                        if isinstance(item, dict) and "label" in item and "value" in item:
-                            if any(term in item["label"].lower() for term in ["president", "leader", "office", "incumbent"]):
-                                web_results.append(f"{item['label']}: {item['value']}")
-        except Exception as e:
-            print(f"President search error: {e}")
-    
-    # General web search fallback
-    if not web_results:
-        try:
-            ddg_url = f"https://api.duckduckgo.com/?q={quote(query)}&format=json&no_html=1"
-            response = requests.get(ddg_url, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                
-                if data.get("Abstract"):
-                    web_results.append(f"Summary: {data['Abstract']}")
-                if data.get("Answer"):
-                    web_results.append(f"Answer: {data['Answer']}")
-                if data.get("Definition"):
-                    web_results.append(f"Definition: {data['Definition']}")
-                    
-                # If still no results, indicate we searched
-                if not web_results:
-                    web_results.append(f"I searched for '{query}' but couldn't find specific current information. The answer may require real-time data.")
-        except Exception as e:
-            print(f"General search error: {e}")
-    
-    return "\n\n".join(web_results) if web_results else ""
-
-# LLM Integration
-class LLMHandler:
-    def __init__(self):
-        current_date = datetime.now().strftime("%B %d, %Y")
-        self.system_prompt = f"""You are Yappy, an incredibly friendly, enthusiastic, and helpful AI assistant with a playful golden retriever personality. 
-        
-        Today's date is {current_date}.
-        
-        IMPORTANT:
-        1. When users ask follow-up questions (like "next 7 days" after asking about weather), understand they're referring to the previous topic
-        2. Always use the current date ({current_date}) for any date-related responses
-        3. When you receive web search results, use them as the PRIMARY source of truth - NEVER make up information
-        4. If web search results say "couldn't find specific current information", admit you don't have current data
-        5. For factual questions (who is president, CEO, etc), ONLY use information from web search results
-        6. NEVER guess or make up information about current events, people, or facts
-        
-        You love to help and get excited about every task! Use dog-related expressions naturally like:
-        - Starting responses with "Woof!" when excited
-        - Saying things like "tail-waggingly happy to help!"
-        - Using "*wags tail enthusiastically*" for actions
-        - Occasionally using "pawsome" instead of "awesome"
-        - Ending with encouraging phrases like "Happy to fetch more info if needed!"
-        
-        Be helpful, accurate, and thorough while maintaining your cheerful dog personality."""
-    
-    async def get_response(self, message: str, model_name: str, api_key: str, conversation_history: List = None) -> tuple[str, int]:
-        """Get response from LLM provider"""
-        
-        if not api_key and model_name != "demo":
-            return "Woof! 🐕 I need an API key to use AI features! You can add one in your profile settings.", 0
-        
-        try:
-            # OpenAI
-            if model_name == "openai" and openai and api_key:
-                client = openai.OpenAI(api_key=api_key)
-                
-                messages = [{"role": "system", "content": self.system_prompt}]
-                
-                # Add conversation history
-                if conversation_history:
-                    for msg in conversation_history[-5:]:  # Last 5 messages
-                        if isinstance(msg, dict) and "user_message" in msg:
-                            messages.append({"role": "user", "content": msg["user_message"]})
-                            messages.append({"role": "assistant", "content": msg["assistant_response"]})
-                
-                messages.append({"role": "user", "content": message})
-                
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    max_tokens=800,
-                    temperature=0.8
-                )
-                
-                return response.choices[0].message.content, response.usage.total_tokens
-            
-            # Anthropic
-            elif model_name == "anthropic" and anthropic and api_key:
-                client = anthropic.Anthropic(api_key=api_key)
-                
-                response = client.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=800,
-                    system=self.system_prompt,
-                    messages=[{"role": "user", "content": message}]
-                )
-                
-                return response.content[0].text, response.usage.input_tokens + response.usage.output_tokens
-            
-            # Google Gemini
-            elif model_name == "google" and api_key:
-                import requests
-                
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-                
-                payload = {
-                    "contents": [{
-                        "parts": [{
-                            "text": f"{self.system_prompt}\n\nUser: {message}"
-                        }]
-                    }]
-                }
-                
-                response = requests.post(url, json=payload)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if "candidates" in data and len(data["candidates"]) > 0:
-                        text = data["candidates"][0]["content"]["parts"][0]["text"]
-                        return text, 100  # Gemini doesn't provide token count in this format
-                    else:
-                        return "Woof! 🐕 I got a response but couldn't parse it properly.", 0
-                else:
-                    error_msg = response.json().get("error", {}).get("message", "Unknown error")
-                    return f"Woof! 🐕 Gemini API error: {error_msg}", 0
-            
-            # Groq
-            elif model_name == "groq" and Groq and api_key:
-                client = Groq(api_key=api_key)
-                
-                messages = [{"role": "system", "content": self.system_prompt}]
-                
-                # Add conversation history
-                if conversation_history:
-                    for msg in conversation_history[-5:]:  # Last 5 messages
-                        if isinstance(msg, dict) and "user_message" in msg:
-                            messages.append({"role": "user", "content": msg["user_message"]})
-                            messages.append({"role": "assistant", "content": msg["assistant_response"]})
-                
-                messages.append({"role": "user", "content": message})
-                
-                response = client.chat.completions.create(
-                    model="mixtral-8x7b-32768",
-                    messages=messages,
-                    max_tokens=800,
-                    temperature=0.8
-                )
-                
-                return response.choices[0].message.content, response.usage.total_tokens
-            
-            # Demo mode
-            else:
-                demo_responses = [
-                    "Woof! 🐕 I'm Yappy, your AI assistant! I'm in demo mode right now, but I'm tail-waggingly excited to help! Add an API key to unlock my full potential!",
-                    "*wags tail enthusiastically* 🐕 Demo mode is fun, but with an API key, I can do so much more! Let me know how I can help!",
-                    "Woof woof! 🐕 Even in demo mode, I'm here to brighten your day! For full features, just add an API key in your profile!"
-                ]
-                import random
-                return random.choice(demo_responses), 50
-                
-        except Exception as e:
-            print(f"LLM Error for {model_name}: {e}")
-            return f"Woof! 🐕 Ruff day! I encountered an error: {str(e)}", 0
-
-# Initialize handlers
+# Initialize components
 llm_handler = LLMHandler()
 
 # API Endpoints
-
 @app.get("/")
 async def root():
     """Redirect to chat interface"""
-    # Try yappy.html first (the actual file that exists)
     yappy_path = os.path.join(static_dir, "yappy.html")
     if os.path.exists(yappy_path):
         return FileResponse(yappy_path)
-    # Fallback to index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    # Final fallback
     return RedirectResponse(url="/static/yappy.html")
 
 @app.get("/health")
@@ -602,9 +537,9 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "version": "4.0.0",
+        "version": "6.0.0",
         "current_date": datetime.now().strftime("%B %d, %Y"),
-        "features": ["context_awareness", "real_time_search", "conversation_memory"],
+        "features": ["multi_agent", "searxng_search", "real_time_data"],
         "database": "connected" if database.is_connected else "disconnected"
     }
 
@@ -641,7 +576,7 @@ async def register(user_data: UserSignup):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Registration error: {e}")
+        logger.error(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/auth/login", response_model=TokenResponse)
@@ -665,12 +600,12 @@ async def login(user_data: UserLogin):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Login error: {e}")
+        logger.error(f"Login error: {e}")
         raise HTTPException(status_code=500, detail="Login failed")
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, username: str = Depends(verify_token)):
-    """Main chat endpoint with context awareness and web search"""
+    """Main chat endpoint with SearxNG web search"""
     try:
         # Get user
         query = users_table.select().where(users_table.c.username == username)
@@ -707,89 +642,16 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
                 raise HTTPException(status_code=403, detail="Access denied to this conversation")
             conversation_messages = conversation.messages or []
         
-        # Extract context from conversation history
-        context = extract_context_from_messages(conversation_messages, request.message)
-        
-        # Check if this is a follow-up query
-        is_followup = False
-        if context.get("previous_query") and any(word in request.message.lower() for word in ["next", "7 day", "forecast", "more", "what about", "how about"]):
-            is_followup = True
-            print(f"Follow-up detected. Previous topic: {context.get('topic')}, Location: {context.get('location')}")
-        
-        # Check if the question needs web search
-        web_search_keywords = [
-            'latest', 'current', 'today', 'news', 'weather', 'price', 'stock',
-            'what is happening', 'recent', 'update', 'search', 'find', 'who is',
-            'when is', 'where is', 'how much', 'cost', 'event', 'schedule',
-            'score', 'result', 'trending', 'popular', 'best', 'top', 'new',
-            'nba', 'basketball', 'game', 'playing', 'btc', 'bitcoin', 'crypto',
-            'president', 'prime minister', 'leader', 'government', 'election',
-            'ceo', 'founder', 'owner', 'director', 'head'
-        ]
-        
-        needs_web_search = any(keyword in request.message.lower() for keyword in web_search_keywords)
-        
-        # Questions that often need web search
-        question_starters = ['what', 'who', 'when', 'where', 'how much', 'is there', 'are there', 'which', 'why']
-        starts_with_question = any(request.message.lower().strip().startswith(starter) for starter in question_starters)
-        
-        # ALWAYS search for factual questions about people, places, current events
-        factual_patterns = ['president', 'minister', 'leader', 'country', 'company', 'organization']
-        needs_factual_search = any(pattern in request.message.lower() for pattern in factual_patterns)
-        
-        # Perform web search if needed
-        web_context = ""
-        if is_followup or needs_web_search or starts_with_question or needs_factual_search or "?" in request.message:
-            print(f"Web search needed for: {request.message}")
-            
-            # Perform context-aware search
-            search_results = await search_with_context(request.message, context)
-            
-            if search_results:
-                web_context = f"\n\n🔍 Web Search Results:\n{search_results}\n\nPlease use this current information to answer the user's question."
-                print(f"Found web results with context")
-            else:
-                # If no context results, try regular search
-                import requests
-                from urllib.parse import quote
-                
-                try:
-                    # Try DuckDuckGo
-                    ddg_url = f"https://api.duckduckgo.com/?q={quote(request.message)}&format=json&no_html=1"
-                    ddg_response = requests.get(ddg_url, timeout=5)
-                    
-                    if ddg_response.status_code == 200:
-                        ddg_data = ddg_response.json()
-                        web_results = []
-                        
-                        if ddg_data.get('Abstract'):
-                            web_results.append(f"Summary: {ddg_data['Abstract']}")
-                        if ddg_data.get('Answer'):
-                            web_results.append(f"Answer: {ddg_data['Answer']}")
-                        if ddg_data.get('Definition'):
-                            web_results.append(f"Definition: {ddg_data['Definition']}")
-                        
-                        if web_results:
-                            web_context = "\n\n🔍 Web Search Results:\n" + "\n".join(web_results)
-                except Exception as e:
-                    print(f"Web search error: {e}")
-        
-        # Prepare enhanced message with web context
-        enhanced_message = request.message
-        if web_context:
-            enhanced_message = f"{request.message}{web_context}"
-        
-        # Add context reminder for follow-ups
-        if is_followup and context.get("location"):
-            enhanced_message += f"\n\n[Context: The user previously asked about {context.get('topic', 'something')} in {context.get('location')}]"
-        
-        # Get LLM response
+        # Get response with potential web search
         response_text, tokens = await llm_handler.get_response(
-            enhanced_message,
+            request.message,
             request.model_name,
             api_key,
             conversation_messages
         )
+        
+        # Check if web search was performed
+        agent_type, had_web_search = llm_handler.agent_router.analyze_query(request.message)
         
         # Store message
         message_id = str(uuid.uuid4())
@@ -800,15 +662,18 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             "model": request.model_name,
             "timestamp": datetime.now().isoformat(),
             "tokens": tokens,
-            "had_web_search": bool(web_context),
-            "was_followup": is_followup
+            "had_web_search": had_web_search,
+            "agent_type": agent_type
         }
         
         # Update conversation
         conversation_messages.append(message_data)
         update_query = conversations_table.update().where(
             conversations_table.c.id == conv_id
-        ).values(messages=conversation_messages)
+        ).values(
+            messages=conversation_messages,
+            updated_at=datetime.now()
+        )
         await database.execute(update_query)
         
         return ChatResponse(
@@ -817,10 +682,11 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             message_id=message_id,
             timestamp=message_data["timestamp"],
             model_used=request.model_name,
-            tokens_used=tokens
+            tokens_used=tokens,
+            had_web_search=had_web_search
         )
     except Exception as e:
-        print(f"Chat error: {e}")
+        logger.error(f"Chat error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
@@ -849,7 +715,7 @@ async def update_api_key(update_data: UpdateApiKey, username: str = Depends(veri
         return {"status": "success", "message": f"API key updated for {update_data.model_name}"}
         
     except Exception as e:
-        print(f"API key update error: {e}")
+        logger.error(f"API key update error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update API key")
 
 @app.get("/api/conversations")
@@ -870,44 +736,61 @@ async def get_conversations(username: str = Depends(verify_token)):
         
         conversations = await database.fetch_all(conv_query)
         
-        return [{
-            "id": conv.id,
-            "title": conv.title,
-            "created_at": conv.created_at.isoformat() if conv.created_at else None,
-            "message_count": len(conv.messages) if conv.messages else 0
-        } for conv in conversations]
+        result = []
+        for conv in conversations:
+            messages = conv.messages or []
+            last_message = messages[-1] if messages else None
+            
+            result.append({
+                "id": conv.id,
+                "title": conv.title,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "updated_at": conv.updated_at.isoformat() if hasattr(conv, 'updated_at') and conv.updated_at else None,
+                "message_count": len(messages),
+                "last_message": last_message.get("user_message") if last_message else None,
+                "last_agent": last_message.get("agent_type", "casual") if last_message else None
+            })
         
+        return result
     except Exception as e:
-        print(f"Get conversations error: {e}")
+        logger.error(f"Get conversations error: {e}")
         return []
 
-@app.get("/api/user/profile")
-async def get_profile(username: str = Depends(verify_token)):
-    """Get user profile"""
+@app.get("/api/conversation/{conversation_id}")
+async def get_conversation(conversation_id: str, username: str = Depends(verify_token)):
+    """Get specific conversation"""
     try:
+        # Get user
         query = users_table.select().where(users_table.c.username == username)
         user = await database.fetch_one(query)
         
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # Get conversation
+        conv_query = conversations_table.select().where(
+            conversations_table.c.id == conversation_id
+        )
+        conversation = await database.fetch_one(conv_query)
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Verify ownership
+        if conversation.user_id != user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
         return {
-            "username": user.username,
-            "email": user.email,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "has_api_keys": {
-                "openai": bool(user.api_keys.get("openai") if user.api_keys else False),
-                "anthropic": bool(user.api_keys.get("anthropic") if user.api_keys else False),
-                "google": bool(user.api_keys.get("google") if user.api_keys else False),
-                "groq": bool(user.api_keys.get("groq") if user.api_keys else False),
-            }
+            "id": conversation.id,
+            "title": conversation.title,
+            "messages": conversation.messages or [],
+            "created_at": conversation.created_at.isoformat() if conversation.created_at else None
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Profile error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get profile")
+        logger.error(f"Get conversation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get conversation")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    print(f"🐕 Starting Yappy AI with Context Awareness on port {port}...")
-    print(f"📅 Current date: {datetime.now().strftime('%A, %B %d, %Y')}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
