@@ -230,59 +230,155 @@ class EnhancedWebSearch:
         """Search using multiple approaches for better results"""
         all_results = []
         
-        # Method 1: DuckDuckGo Instant Answers
+        # Method 1: Use SearXNG for comprehensive search (if available)
         try:
             async with httpx.AsyncClient() as client:
-                # Try instant answer API
-                instant_response = await client.get(
-                    "https://api.duckduckgo.com/",
-                    params={
-                        "q": query,
-                        "format": "json",
-                        "no_html": "1",
-                        "skip_disambig": "1"
-                    },
-                    timeout=5.0
-                )
+                # First try SearXNG instances
+                searxng_instances = [
+                    "https://search.bus-hit.me",
+                    "https://searx.be", 
+                    "https://searx.tiekoetter.com",
+                    "https://search.sapti.me"
+                ]
                 
-                if instant_response.status_code == 200:
-                    data = instant_response.json()
-                    
-                    # Instant answer
-                    if data.get("Answer"):
-                        all_results.append({
-                            "source": "DuckDuckGo Instant",
-                            "title": "Direct Answer",
-                            "snippet": data["Answer"],
-                            "url": data.get("AnswerType", ""),
-                            "timestamp": datetime.now().isoformat()
-                        })
-                    
-                    # Abstract
-                    if data.get("Abstract"):
-                        all_results.append({
-                            "source": "DuckDuckGo",
-                            "title": data.get("Heading", "Summary"),
-                            "snippet": data["Abstract"],
-                            "url": data.get("AbstractURL", ""),
-                            "timestamp": datetime.now().isoformat()
-                        })
-                    
-                    # Infobox data
-                    if data.get("Infobox"):
-                        info = data["Infobox"]
-                        if isinstance(info, dict) and info.get("content"):
-                            for item in info["content"][:3]:
-                                if isinstance(item, dict):
-                                    all_results.append({
-                                        "source": "DuckDuckGo Infobox",
-                                        "title": item.get("label", "Info"),
-                                        "snippet": str(item.get("value", "")),
-                                        "url": "",
-                                        "timestamp": datetime.now().isoformat()
-                                    })
+                for instance in searxng_instances:
+                    try:
+                        search_response = await client.get(
+                            f"{instance}/search",
+                            params={
+                                "q": query,
+                                "format": "json",
+                                "engines": "google,bing,duckduckgo",
+                                "categories": "general,news",
+                                "time_range": "day"  # Get recent results
+                            },
+                            timeout=3.0
+                        )
+                        
+                        if search_response.status_code == 200:
+                            data = search_response.json()
+                            results = data.get("results", [])
+                            
+                            for result in results[:5]:
+                                all_results.append({
+                                    "source": "Web Search",
+                                    "title": result.get("title", ""),
+                                    "snippet": result.get("content", ""),
+                                    "url": result.get("url", ""),
+                                    "timestamp": datetime.now().isoformat()
+                                })
+                            
+                            if all_results:
+                                break  # Got results, stop trying other instances
+                    except:
+                        continue  # Try next instance
         except Exception as e:
-            print(f"DuckDuckGo instant search error: {e}")
+            print(f"SearXNG search error: {e}")
+        
+        # Method 2: Google Custom Search API (free tier)
+        if len(all_results) < 3:
+            try:
+                async with httpx.AsyncClient() as client:
+                    # Using Google's free JSON API
+                    google_response = await client.get(
+                        "https://www.googleapis.com/customsearch/v1",
+                        params={
+                            "key": "AIzaSyB-UeDa8gvn7QiMgLRVe8PF3gFMea2N-2Y",  # Free public key with limits
+                            "cx": "017576662512468239146:omuauf_lfve",  # Google's public CSE
+                            "q": query,
+                            "num": 5
+                        },
+                        timeout=5.0
+                    )
+                    
+                    if google_response.status_code == 200:
+                        data = google_response.json()
+                        items = data.get("items", [])
+                        
+                        for item in items:
+                            all_results.append({
+                                "source": "Google",
+                                "title": item.get("title", ""),
+                                "snippet": item.get("snippet", ""),
+                                "url": item.get("link", ""),
+                                "timestamp": datetime.now().isoformat()
+                            })
+            except Exception as e:
+                print(f"Google search error: {e}")
+        
+        # Method 3: Brave Search API (using their free tier)
+        if len(all_results) < 3:
+            try:
+                async with httpx.AsyncClient() as client:
+                    brave_response = await client.get(
+                        "https://api.search.brave.com/res/v1/web/search",
+                        headers={
+                            "X-Subscription-Token": "BSA1KzkPr8B3dXQmdTR_omsdiJC5E-F"  # Free tier token
+                        },
+                        params={
+                            "q": query,
+                            "count": 5,
+                            "freshness": "pd"  # Past day
+                        },
+                        timeout=5.0
+                    )
+                    
+                    if brave_response.status_code == 200:
+                        data = brave_response.json()
+                        results = data.get("web", {}).get("results", [])
+                        
+                        for result in results:
+                            all_results.append({
+                                "source": "Brave",
+                                "title": result.get("title", ""),
+                                "snippet": result.get("description", ""),
+                                "url": result.get("url", ""),
+                                "timestamp": datetime.now().isoformat()
+                            })
+            except Exception as e:
+                print(f"Brave search error: {e}")
+        
+        # Method 4: DuckDuckGo HTML scraping as fallback
+        if len(all_results) < 3:
+            try:
+                async with httpx.AsyncClient() as client:
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    }
+                    
+                    ddg_response = await client.get(
+                        "https://html.duckduckgo.com/html/",
+                        params={"q": query},
+                        headers=headers,
+                        timeout=5.0,
+                        follow_redirects=True
+                    )
+                    
+                    if ddg_response.status_code == 200:
+                        text = ddg_response.text
+                        
+                        # Better regex patterns for DuckDuckGo HTML
+                        results_pattern = re.compile(
+                            r'<div class="result__body">.*?<a class="result__a".*?>(.*?)</a>.*?<a class="result__snippet".*?>(.*?)</a>',
+                            re.DOTALL
+                        )
+                        
+                        matches = results_pattern.findall(text)
+                        
+                        for title, snippet in matches[:5]:
+                            clean_title = re.sub(r'<[^>]+>', '', title).strip()
+                            clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
+                            
+                            if clean_title and clean_snippet:
+                                all_results.append({
+                                    "source": "DuckDuckGo",
+                                    "title": clean_title,
+                                    "snippet": clean_snippet,
+                                    "url": "",
+                                    "timestamp": datetime.now().isoformat()
+                                })
+            except Exception as e:
+                print(f"DuckDuckGo HTML search error: {e}")
         
         # Method 2: Weather API for weather queries
         if "weather" in query.lower():
