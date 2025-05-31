@@ -14,9 +14,8 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- React Markdown -->
-    <script src="https://unpkg.com/react-markdown@8.0.7/react-markdown.min.js"></script>
-    <script src="https://unpkg.com/remark-gfm@3.0.1/index.js"></script>
+    <!-- Marked for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         /* CSS Variables for Theme */
@@ -1193,7 +1192,12 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-        const ReactMarkdown = window.ReactMarkdown;
+        
+        // Simple Markdown component using marked
+        function MarkdownView({ children }) {
+            const html = marked.parse(children || '');
+            return <div dangerouslySetInnerHTML={{ __html: html }} />;
+        }
 
         // Auth Component
         function Auth({ onLogin }) {
@@ -1805,7 +1809,7 @@
                                                 )}
                                                 {msg.type === 'agent' && msg.reasoning && expandedReasoning.has(index) && (
                                                     <div className="reasoning-content">
-                                                        <ReactMarkdown>{String(msg.reasoning || '')}</ReactMarkdown>
+                                                        <MarkdownView>{String(msg.reasoning || '')}</MarkdownView>
                                                     </div>
                                                 )}
                                                 {msg.type === 'agent' && (
@@ -1855,7 +1859,7 @@
                                                                     </div>
                                                                 )}
                                                                 <div className={contentWithoutImages.length > 500 ? "long-text-content" : ""}>
-                                                                    <ReactMarkdown>{contentWithoutImages || ''}</ReactMarkdown>
+                                                                    <MarkdownView>{contentWithoutImages || ''}</MarkdownView>
                                                                 </div>
                                                                 {images.map((img, idx) => (
                                                                     <div key={idx} style={{margin: '20px 0', textAlign: 'center'}}>
