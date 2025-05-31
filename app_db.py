@@ -806,6 +806,94 @@ Resume content to analyze:
         api_keys = user.api_keys or {}
         api_key = api_keys.get(request.model_name)
         
+        # Check if the question needs web search
+        web_search_keywords = [
+            'latest', 'current', 'today', 'news', 'weather', 'price', 'stock',
+            'what is happening', 'recent', 'update', 'search', 'find', 'who is',
+            'when is', 'where is', 'how much', 'cost', 'event', 'schedule',
+            'score', 'result', 'trending', 'popular', 'best', 'top', 'new'
+        ]
+        
+        needs_web_search = any(keyword in request.message.lower() for keyword in web_search_keywords)
+        
+        # Questions that often need web search
+        question_starters = ['what', 'who', 'when', 'where', 'how much', 'is there', 'are there']
+        starts_with_question = any(request.message.lower().strip().startswith(starter) for starter in question_starters)
+        
+        web_context = ""
+        if needs_web_search or starts_with_question:
+            print(f"Web search needed for: {request.message}")
+            
+            # Perform web search
+            try:
+                import requests
+                from urllib.parse import quote
+                
+                # Try multiple search approaches
+                search_query = quote(request.message)
+                web_results = []
+                
+                # 1. DuckDuckGo instant answer API
+                try:
+                    ddg_url = f"https://api.duckduckgo.com/?q={search_query}&format=json&no_html=1&skip_disambig=1"
+                    ddg_response = requests.get(ddg_url, timeout=5)
+                    if ddg_response.status_code == 200:
+                        ddg_data = ddg_response.json()
+                        
+                        # Instant answer
+                        if ddg_data.get('AbstractText'):
+                            web_results.append(f"Summary: {ddg_data['AbstractText']}")
+                        
+                        # Direct answer
+                        if ddg_data.get('Answer'):
+                            web_results.append(f"Answer: {ddg_data['Answer']}")
+                        
+                        # Definition
+                        if ddg_data.get('Definition'):
+                            web_results.append(f"Definition: {ddg_data['Definition']}")
+                        
+                        # Infobox
+                        if ddg_data.get('Infobox'):
+                            infobox = ddg_data['Infobox']
+                            if isinstance(infobox, dict) and infobox.get('content'):
+                                for item in infobox['content'][:3]:
+                                    if 'value' in item and 'label' in item:
+                                        web_results.append(f"{item['label']}: {item['value']}")
+                except:
+                    pass
+                
+                # 2. For weather queries
+                if 'weather' in request.message.lower():
+                    try:
+                        # Extract location from query
+                        import re
+                        location_match = re.search(r'weather (?:in |for |at )?([a-zA-Z\s]+)', request.message.lower())
+                        if location_match:
+                            location = location_match.group(1).strip()
+                            weather_url = f"https://wttr.in/{quote(location)}?format=j1"
+                            weather_response = requests.get(weather_url, timeout=5)
+                            if weather_response.status_code == 200:
+                                weather_data = weather_response.json()
+                                current = weather_data['current_condition'][0]
+                                web_results.append(f"Weather in {location}: {current['weatherDesc'][0]['value']}, {current['temp_C']}°C/{current['temp_F']}°F")
+                    except:
+                        pass
+                
+                # 3. For news queries
+                if any(word in request.message.lower() for word in ['news', 'latest', 'recent']):
+                    web_results.append("Note: For latest news, please check current news websites as I cannot access real-time news feeds.")
+                
+                if web_results:
+                    web_context = "\n\n🔍 Web Search Results:\n" + "\n".join(web_results) + "\n\n"
+                    print(f"Found web results: {len(web_results)} items")
+                else:
+                    # If no results found, add a note
+                    web_context = "\n\n[Note: Web search performed but no specific results found. Providing answer based on general knowledge.]\n\n"
+                
+            except Exception as e:
+                print(f"Web search error: {e}")
+                # Continue without web results
+        
         # Get or create conversation
         conv_id = request.conversation_id or str(uuid.uuid4())
         
@@ -830,9 +918,14 @@ Resume content to analyze:
                 raise HTTPException(status_code=403, detail="Access denied to this conversation")
             conversation_messages = conversation.messages or []
         
+        # Prepare enhanced message with web context
+        enhanced_message = request.message
+        if web_context:
+            enhanced_message = f"{request.message}\n\n[System: Found relevant web information]{web_context}Please incorporate this information in your response."
+        
         # Get LLM response
         response_text, tokens = await llm_handler.get_response(
-            request.message,
+            enhanced_message,
             request.model_name,
             api_key,
             conversation_messages
