@@ -552,10 +552,16 @@ llm_handler = LLMHandler()
 @app.get("/")
 async def root():
     """Redirect to chat interface"""
+    # Try yappy.html first (the actual file that exists)
+    yappy_path = os.path.join(static_dir, "yappy.html")
+    if os.path.exists(yappy_path):
+        return FileResponse(yappy_path)
+    # Fallback to index.html
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return RedirectResponse(url="/static/index.html")
+    # Final fallback
+    return RedirectResponse(url="/static/yappy.html")
 
 @app.get("/health")
 async def health_check():
