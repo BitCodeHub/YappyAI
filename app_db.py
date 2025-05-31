@@ -63,7 +63,13 @@ class SearxSearch:
         self.timeout = 10
     
     def search(self, query: str, num_results: int = 5) -> List[Dict[str, Any]]:
-        """Search using SearxNG instances"""
+        """Search using SearxNG instances with immediate DuckDuckGo fallback"""
+        # Try DuckDuckGo first as it's more reliable
+        results = self._duckduckgo_fallback(query)
+        if results:
+            return results
+            
+        # Then try SearxNG instances
         for instance in self.searx_instances:
             try:
                 params = {
@@ -77,7 +83,7 @@ class SearxSearch:
                 response = requests.get(
                     f"{instance}/search",
                     params=params,
-                    timeout=self.timeout,
+                    timeout=5,  # Shorter timeout
                     headers={'User-Agent': 'Yappy/1.0'}
                 )
                 
@@ -101,8 +107,7 @@ class SearxSearch:
                 logger.warning(f"SearxNG instance {instance} failed: {e}")
                 continue
         
-        # Fallback to DuckDuckGo instant answer API
-        return self._duckduckgo_fallback(query)
+        return []  # Return empty list if all searches fail
     
     def _duckduckgo_fallback(self, query: str) -> List[Dict[str, Any]]:
         """Fallback search using DuckDuckGo"""
@@ -269,25 +274,36 @@ class LLMHandler:
         web_context = ""
         if needs_search:
             logger.info(f"Performing web search for: {prompt}")
-            search_results = self.searx_tool.search(prompt)
+            print(f"🔍 Web search triggered for: {prompt}")
             
-            if search_results:
-                web_context = "\n\nWeb Search Results:\n"
-                for i, result in enumerate(search_results, 1):
-                    web_context += f"\n{i}. {result['title']}"
-                    if result['snippet']:
-                        web_context += f"\n   {result['snippet']}"
-                    if result['link']:
-                        web_context += f"\n   Source: {result['link']}"
-                    web_context += "\n"
+            try:
+                search_results = self.searx_tool.search(prompt)
+                logger.info(f"Search returned {len(search_results) if search_results else 0} results")
                 
-                logger.info(f"Found {len(search_results)} search results")
+                if search_results:
+                    web_context = "\n\n🔍 Web Search Results:\n"
+                    for i, result in enumerate(search_results, 1):
+                        web_context += f"\n{i}. {result['title']}"
+                        if result['snippet']:
+                            web_context += f"\n   {result['snippet']}"
+                        if result['link']:
+                            web_context += f"\n   Source: {result['link']}"
+                        web_context += "\n"
+                    
+                    logger.info(f"Found {len(search_results)} search results")
+                else:
+                    logger.warning("No search results found")
+                    web_context = "\n\n🔍 Note: Web search was attempted but no results were found. Using general knowledge.\n"
+            except Exception as e:
+                logger.error(f"Search error: {e}")
+                web_context = f"\n\n🔍 Note: Web search encountered an error: {str(e)}. Using general knowledge.\n"
         
         # Prepare system prompt based on agent type
-        if agent_type == "browser" and web_context:
+        if needs_search or web_context:
             system_prompt = """You are Yappy 🐕, a friendly AI assistant with real-time web access!
 You MUST use the provided search results to give accurate, current information.
-Always cite the search results when answering factual questions.
+If search results are provided, base your answer on them.
+If no search results are available, mention that you tried to search but couldn't get current data.
 Today's date is """ + datetime.now().strftime('%B %d, %Y') + "."
         else:
             system_prompt = """You are Yappy 🐕, a friendly and enthusiastic AI assistant!
