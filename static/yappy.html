@@ -1232,6 +1232,19 @@
                         
                         axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
                         
+                        // Save API key to database if provided
+                        if (apiKey) {
+                            try {
+                                await axios.post(`${baseURL}/api/keys`, {
+                                    model_name: selectedModel,
+                                    api_key: apiKey
+                                });
+                                console.log('API key saved successfully');
+                            } catch (err) {
+                                console.error('Failed to save API key:', err);
+                            }
+                        }
+                        
                         setSuccess('Login successful!');
                         
                         setTimeout(() => {
@@ -1240,10 +1253,29 @@
                         
                     } else {
                         const baseURL = '';
-                        await axios.post(`${baseURL}/auth/register`, {
+                        const response = await axios.post(`${baseURL}/auth/register`, {
                             username,
                             password
                         });
+                        
+                        // If registration returns a token, save the API key
+                        if (response.data.access_token && apiKey) {
+                            const tempToken = response.data.access_token;
+                            axios.defaults.headers.common['Authorization'] = `Bearer ${tempToken}`;
+                            
+                            try {
+                                await axios.post(`${baseURL}/api/keys`, {
+                                    model_name: selectedModel,
+                                    api_key: apiKey
+                                });
+                                console.log('API key saved during registration');
+                            } catch (err) {
+                                console.error('Failed to save API key during registration:', err);
+                            }
+                            
+                            // Clear the auth header since they need to login
+                            delete axios.defaults.headers.common['Authorization'];
+                        }
                         
                         setSuccess('Registration successful! Please login.');
                         setIsLogin(true);
