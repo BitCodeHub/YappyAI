@@ -674,40 +674,43 @@ async def chat(
                 print(f"Extracted {len(resume_text)} characters from PDF")
                 
                 # Create a resume scoring prompt
-                scoring_prompt = f"""You are an expert ATS (Applicant Tracking System) and recruiter. Analyze this resume and provide a comprehensive evaluation.
+                scoring_prompt = f"""You are an experienced hiring manager. Analyze this resume and determine:
+1. What position the candidate is applying for (based on their experience and the resume content)
+2. Their years of relevant experience
+3. Whether to HIRE or NOT HIRE based on their qualifications
 
 IMPORTANT: Format your response EXACTLY as follows:
 
+## 📋 Position Applied For: [Detected Position]
+
 ## 📊 Resume Score: [X/100]
 
-### ✅ Key Strengths:
-• [strength 1]
-• [strength 2]
-• [strength 3]
+## 🕐 Years of Experience: [X years]
 
-### ⚠️ Areas for Improvement:
-• [improvement 1]
-• [improvement 2]
-• [improvement 3]
+## ✅ Relevant Experience:
+• [List specific relevant experience from resume]
+• [Include job titles, companies, and duration]
+• [Focus on experience related to the detected position]
 
-### 💼 Job Fit Analysis:
-• **Software Engineer**: [fit score]/10 - [brief reason]
-• **Data Scientist**: [fit score]/10 - [brief reason]
-• **Product Manager**: [fit score]/10 - [brief reason]
-• **DevOps Engineer**: [fit score]/10 - [brief reason]
+## 🎯 Skills Assessment:
+• [List relevant skills for the position]
+• [Rate each skill based on evidence in resume]
 
-### 🎯 ATS Optimization:
-• Keywords Score: [X/10]
-• Format Score: [X/10]
-• Missing Keywords: [list key missing terms]
+## 🏆 Key Achievements:
+• [List notable achievements relevant to the position]
 
-### 📝 Specific Recommendations:
-1. [specific actionable recommendation]
-2. [specific actionable recommendation]
-3. [specific actionable recommendation]
+## 📌 Decision: [HIRE / NOT HIRE]
 
-### 🌟 Overall Assessment:
-[2-3 sentence summary of the candidate's profile and potential]
+## 💡 Reasoning:
+[Explain why you would hire or not hire based on:
+- Years of experience (minimum requirements)
+- Relevant skills match
+- Past performance indicators
+- Overall fit for the position]
+
+## 📝 Recommendations:
+[If HIRE: What onboarding/training might they need]
+[If NOT HIRE: What they need to improve to be considered]
 
 Resume content to analyze:
 {resume_text[:4000]}"""
@@ -728,14 +731,9 @@ Resume content to analyze:
                 )
                 
                 # Format the final response
-                final_response = f"""📄 **Resume Analysis Complete**
-                
-Analyzing: *{file_name}*
-                
-{response_text}
+                final_response = f"""📄 **Resume Analysis for {file_name}**
 
----
-💡 **Pro Tip**: Update your resume based on these recommendations and upload again to see your improved score!"""
+{response_text}"""
                 
                 return ChatResponse(
                     response=final_response,
