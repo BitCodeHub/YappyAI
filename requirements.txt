@@ -55,3 +55,4 @@ google-generativeai>=0.3.0
 matplotlib>=3.5.0
 seaborn>=0.12.0
 pandas>=1.5.0
+beautifulsoup4==4.12.2
