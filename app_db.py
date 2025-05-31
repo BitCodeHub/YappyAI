@@ -360,7 +360,7 @@ Remember to be friendly and maintain your Yappy personality! 🐕"""
             
             elif model_name == "google" and genai:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-pro')
+                model = genai.GenerativeModel('gemini-2.0-flash-latest')
                 
                 # Build prompt with history
                 full_prompt = system_prompt + "\n\n"
