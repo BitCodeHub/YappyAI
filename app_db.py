@@ -683,8 +683,20 @@ llm_handler = LLMHandler()
 
 # API Endpoints
 @app.get("/")
-async def root():
-    """Redirect to chat interface"""
+async def root(request: Request):
+    """Redirect to chat interface - mobile responsive"""
+    user_agent = request.headers.get('user-agent', '').lower()
+    
+    # Check if mobile device
+    is_mobile = any(device in user_agent for device in ['mobile', 'android', 'iphone', 'ipad', 'ipod'])
+    
+    if is_mobile:
+        # Serve mobile-optimized version
+        mobile_path = os.path.join(static_dir, "yappy_mobile.html")
+        if os.path.exists(mobile_path):
+            return FileResponse(mobile_path)
+    
+    # Serve desktop version
     yappy_path = os.path.join(static_dir, "yappy.html")
     if os.path.exists(yappy_path):
         return FileResponse(yappy_path)
