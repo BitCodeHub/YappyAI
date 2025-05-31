@@ -1,0 +1,44 @@
+# Core FastAPI and async
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+aiofiles==23.2.1
+python-dotenv==1.0.0
+
+# Database
+databases==0.9.0
+asyncpg==0.29.0
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# LLM Providers
+openai==1.6.1
+anthropic==0.8.1
+google-generativeai==0.3.2
+groq==0.3.0
+
+# PDF Processing
+PyPDF2==3.0.1
+
+# HTTP Client
+httpx==0.26.0
+
+# Token counting
+tiktoken==0.5.2
+
+# Code execution security
+restricted-python==7.0
+
+# Web automation (optional - for browser agent)
+selenium==4.16.0
+beautifulsoup4==4.12.2
+
+# Voice features (optional)
+# pyttsx3==2.90
+# SpeechRecognition==3.10.1
+# pyaudio==0.2.14
+
+# Development
+pytest==7.4.3
+black==23.12.1
+flake8==7.0.0
