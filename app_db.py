@@ -674,18 +674,43 @@ async def chat(
                 print(f"Extracted {len(resume_text)} characters from PDF")
                 
                 # Create a resume scoring prompt
-                scoring_prompt = f"""You are an expert recruiter and resume evaluator. Please analyze this resume and provide:
+                scoring_prompt = f"""You are an expert ATS (Applicant Tracking System) and recruiter. Analyze this resume and provide a comprehensive evaluation.
 
-1. An overall score from 0-100
-2. Key strengths (3-5 bullet points)
-3. Areas for improvement (3-5 bullet points)
-4. Job fit analysis for common tech roles
-5. Specific recommendations to improve the resume
+IMPORTANT: Format your response EXACTLY as follows:
 
-Resume content:
-{resume_text[:3000]}... [truncated for length]
+## 📊 Resume Score: [X/100]
 
-Please format your response in a clear, professional manner with sections and bullet points."""
+### ✅ Key Strengths:
+• [strength 1]
+• [strength 2]
+• [strength 3]
+
+### ⚠️ Areas for Improvement:
+• [improvement 1]
+• [improvement 2]
+• [improvement 3]
+
+### 💼 Job Fit Analysis:
+• **Software Engineer**: [fit score]/10 - [brief reason]
+• **Data Scientist**: [fit score]/10 - [brief reason]
+• **Product Manager**: [fit score]/10 - [brief reason]
+• **DevOps Engineer**: [fit score]/10 - [brief reason]
+
+### 🎯 ATS Optimization:
+• Keywords Score: [X/10]
+• Format Score: [X/10]
+• Missing Keywords: [list key missing terms]
+
+### 📝 Specific Recommendations:
+1. [specific actionable recommendation]
+2. [specific actionable recommendation]
+3. [specific actionable recommendation]
+
+### 🌟 Overall Assessment:
+[2-3 sentence summary of the candidate's profile and potential]
+
+Resume content to analyze:
+{resume_text[:4000]}"""
                 
                 # Get user's API key
                 user = await database.fetch_one(
@@ -702,8 +727,15 @@ Please format your response in a clear, professional manner with sections and bu
                     []
                 )
                 
-                # Add resume analysis header
-                final_response = f"🎯 **Resume Analysis for {file_name}**\n\n{response_text}"
+                # Format the final response
+                final_response = f"""📄 **Resume Analysis Complete**
+                
+Analyzing: *{file_name}*
+                
+{response_text}
+
+---
+💡 **Pro Tip**: Update your resume based on these recommendations and upload again to see your improved score!"""
                 
                 return ChatResponse(
                     response=final_response,
