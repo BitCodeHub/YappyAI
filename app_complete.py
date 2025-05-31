@@ -41,8 +41,8 @@ import aiofiles
 
 class Database:
     def __init__(self):
-        # Use /tmp directory for Render deployment
-        data_dir = os.environ.get('DATA_DIR', '/tmp')
+        # Use persistent directory - avoid /tmp which gets wiped
+        data_dir = os.environ.get('DATA_DIR', '/app/data')
         self.users_file = os.path.join(data_dir, "users_db.json")
         self.conversations_file = os.path.join(data_dir, "conversations_db.json")
         self.ensure_files()
@@ -650,64 +650,69 @@ async def chat(
     username: str = Depends(verify_token)
 ):
     """Chat with Yappy AI"""
-    users = await db.load_users()
-    conversations = await db.load_conversations()
-    
-    if username not in users:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user_data = users[username]
-    
-    # Get API key for the model
-    api_key = user_data["api_keys"].get(request.model_name)
-    
-    # Get or create conversation
-    conv_id = request.conversation_id or str(uuid.uuid4())
-    if conv_id not in conversations:
-        conversations[conv_id] = {
-            "user": username,
-            "messages": [],
-            "created_at": datetime.now().isoformat(),
-            "title": request.message[:50] + "..." if len(request.message) > 50 else request.message
+    try:
+        print(f"Chat request from {username}: {request.message[:50]}...")
+        users = await db.load_users()
+        conversations = await db.load_conversations()
+        
+        if username not in users:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = users[username]
+        
+        # Get API key for the model
+        api_key = user_data["api_keys"].get(request.model_name)
+        
+        # Get or create conversation
+        conv_id = request.conversation_id or str(uuid.uuid4())
+        if conv_id not in conversations:
+            conversations[conv_id] = {
+                "user": username,
+                "messages": [],
+                "created_at": datetime.now().isoformat(),
+                "title": request.message[:50] + "..." if len(request.message) > 50 else request.message
+            }
+        
+        # Verify conversation belongs to user
+        if conversations[conv_id]["user"] != username:
+            raise HTTPException(status_code=403, detail="Access denied to this conversation")
+        
+        # Set current conversation for context
+        user_data["current_conversation"] = conversations[conv_id]["messages"]
+        
+        # Get LLM response
+        response_text, tokens = await llm_handler.get_response(
+            request.message,
+            request.model_name,
+            api_key,
+            user_data
+        )
+        
+        # Store message
+        message_id = str(uuid.uuid4())
+        message_data = {
+            "id": message_id,
+            "user_message": request.message,
+            "assistant_response": response_text,
+            "model": request.model_name,
+            "timestamp": datetime.now().isoformat(),
+            "tokens": tokens
         }
-    
-    # Verify conversation belongs to user
-    if conversations[conv_id]["user"] != username:
-        raise HTTPException(status_code=403, detail="Access denied to this conversation")
-    
-    # Set current conversation for context
-    user_data["current_conversation"] = conversations[conv_id]["messages"]
-    
-    # Get LLM response
-    response_text, tokens = await llm_handler.get_response(
-        request.message,
-        request.model_name,
-        api_key,
-        user_data
-    )
-    
-    # Store message
-    message_id = str(uuid.uuid4())
-    message_data = {
-        "id": message_id,
-        "user_message": request.message,
-        "assistant_response": response_text,
-        "model": request.model_name,
-        "timestamp": datetime.now().isoformat(),
-        "tokens": tokens
-    }
-    
-    conversations[conv_id]["messages"].append(message_data)
-    await db.save_conversations(conversations)
-    
-    return ChatResponse(
-        response=response_text,
-        conversation_id=conv_id,
-        message_id=message_id,
-        timestamp=message_data["timestamp"],
-        model_used=request.model_name,
-        tokens_used=tokens
-    )
+        
+        conversations[conv_id]["messages"].append(message_data)
+        await db.save_conversations(conversations)
+        
+        return ChatResponse(
+            response=response_text,
+            conversation_id=conv_id,
+            message_id=message_id,
+            timestamp=message_data["timestamp"],
+            model_used=request.model_name,
+            tokens_used=tokens
+        )
+    except Exception as e:
+        print(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 @app.get("/api/conversations")
 async def get_conversations(username: str = Depends(verify_token)):
