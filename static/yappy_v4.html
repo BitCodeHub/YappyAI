@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yappy AI v4 - Context-Aware Assistant</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .app-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 2rem;
+        }
+        
+        .app-header h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .app-header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .app-header .date {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+        
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 220px);
+            max-height: 800px;
+        }
+        
+        .chat-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 1.5rem;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .user-avatar {
+            background: #667eea;
+        }
+        
+        .yappy-avatar {
+            background: #f59e0b;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .message-content {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-left: 52px;
+        }
+        
+        .user-message .message-content {
+            background: #e9ecef;
+        }
+        
+        .context-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #17a2b8;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-left: 52px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .search-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-left: 52px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .chat-input-container {
+            padding: 1.5rem;
+            border-top: 1px solid #eee;
+            background: white;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        .chat-input-wrapper {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            font-size: 1rem;
+            resize: none;
+            min-height: 50px;
+            max-height: 150px;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            padding: 1rem 2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .send-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .model-selector {
+            padding: 0.5rem 1rem;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .settings-button {
+            padding: 0.5rem 1rem;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .welcome-message {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
+        
+        .welcome-message h2 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        
+        .example-queries {
+            text-align: left;
+            max-width: 600px;
+            margin: 2rem auto;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .example-queries h4 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+        
+        .query-example {
+            background: #f8f9fa;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .query-example:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .api-key-prompt {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        const API_BASE = window.location.origin;
+        
+        function YappyV4() {
+            const [user, setUser] = useState(null);
+            const [messages, setMessages] = useState([]);
+            const [inputMessage, setInputMessage] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [selectedModel, setSelectedModel] = useState('openai');
+            const [conversationId, setConversationId] = useState(null);
+            const [hasApiKey, setHasApiKey] = useState(false);
+            const messagesEndRef = useRef(null);
+            
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            };
+            
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+            
+            useEffect(() => {
+                const token = localStorage.getItem('yappy_token');
+                const username = localStorage.getItem('yappy_username');
+                const apiKey = localStorage.getItem(`yappy_apikey_${selectedModel}`);
+                
+                if (token && username) {
+                    setUser({ username, token });
+                    setHasApiKey(!!apiKey);
+                }
+            }, [selectedModel]);
+            
+            const handleLogin = async (username, password) => {
+                try {
+                    const response = await axios.post(`${API_BASE}/auth/login`, {
+                        username,
+                        password
+                    });
+                    
+                    const { access_token, username: user } = response.data;
+                    localStorage.setItem('yappy_token', access_token);
+                    localStorage.setItem('yappy_username', user);
+                    setUser({ username: user, token: access_token });
+                } catch (error) {
+                    alert('Login failed: ' + (error.response?.data?.detail || error.message));
+                }
+            };
+            
+            const handleLogout = () => {
+                localStorage.removeItem('yappy_token');
+                localStorage.removeItem('yappy_username');
+                setUser(null);
+                setMessages([]);
+                setConversationId(null);
+            };
+            
+            const handleSendMessage = async (message = inputMessage) => {
+                if (!message.trim() || isLoading) return;
+                
+                const userMessage = {
+                    id: Date.now(),
+                    type: 'user',
+                    content: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                setMessages(prev => [...prev, userMessage]);
+                setInputMessage('');
+                setIsLoading(true);
+                
+                try {
+                    const response = await axios.post(
+                        `${API_BASE}/api/chat`,
+                        {
+                            message: message,
+                            model_name: selectedModel,
+                            conversation_id: conversationId
+                        },
+                        {
+                            headers: { Authorization: `Bearer ${user.token}` }
+                        }
+                    );
+                    
+                    const assistantMessage = {
+                        id: response.data.message_id,
+                        type: 'assistant',
+                        content: response.data.response,
+                        timestamp: response.data.timestamp,
+                        webSearched: response.data.web_searched,
+                        contextUsed: response.data.context_used
+                    };
+                    
+                    setMessages(prev => [...prev, assistantMessage]);
+                    
+                    if (!conversationId) {
+                        setConversationId(response.data.conversation_id);
+                    }
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    const errorMessage = {
+                        id: Date.now(),
+                        type: 'assistant',
+                        content: `Error: ${error.response?.data?.detail || error.message}`,
+                        timestamp: new Date().toISOString()
+                    };
+                    setMessages(prev => [...prev, errorMessage]);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            const handleExampleClick = (query) => {
+                setInputMessage(query);
+            };
+            
+            const formatMessage = (content) => {
+                const html = marked.parse(content);
+                return <div dangerouslySetInnerHTML={{ __html: html }} />;
+            };
+            
+            const currentDate = new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            if (!user) {
+                return <LoginScreen onLogin={handleLogin} />;
+            }
+            
+            return (
+                <div className="container">
+                    <div className="app-header">
+                        <h1>🐕 Yappy AI v4</h1>
+                        <p className="subtitle">Context-Aware Assistant with Real-Time Data</p>
+                        <p className="date">Today is {currentDate}</p>
+                    </div>
+                    
+                    <div className="chat-container">
+                        <div className="chat-header">
+                            <h3>Chat with Yappy</h3>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <select 
+                                    className="model-selector" 
+                                    value={selectedModel} 
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                >
+                                    <option value="openai">OpenAI</option>
+                                    <option value="anthropic">Anthropic</option>
+                                    <option value="google">Google</option>
+                                    <option value="groq">Groq</option>
+                                </select>
+                                <button className="settings-button" onClick={handleLogout}>
+                                    Logout ({user.username})
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="chat-messages">
+                            {messages.length === 0 ? (
+                                <div className="welcome-message">
+                                    <h2>Welcome to Yappy AI v4! 🐕</h2>
+                                    <p>I understand context and provide real-time information!</p>
+                                    
+                                    {!hasApiKey && (
+                                        <div className="api-key-prompt">
+                                            ⚠️ Add an API key for {selectedModel} to get started
+                                        </div>
+                                    )}
+                                    
+                                    <div className="example-queries">
+                                        <h4>Try these examples:</h4>
+                                        <div 
+                                            className="query-example"
+                                            onClick={() => handleExampleClick("What's the weather in San Francisco?")}
+                                        >
+                                            🌤️ "What's the weather in San Francisco?"
+                                        </div>
+                                        <div 
+                                            className="query-example"
+                                            onClick={() => handleExampleClick("What's the weather in Los Angeles?")}
+                                        >
+                                            ☀️ "What's the weather in Los Angeles?"
+                                        </div>
+                                        <div 
+                                            className="query-example"
+                                            onClick={() => handleSendMessage("What's the weather in Los Angeles?")
+                                                .then(() => setTimeout(() => 
+                                                    handleExampleClick("Give me the next 7 days forecast"), 2000))
+                                            }
+                                        >
+                                            📅 Then ask: "Give me the next 7 days forecast"
+                                        </div>
+                                        <div 
+                                            className="query-example"
+                                            onClick={() => handleExampleClick("Who's playing in the NBA today?")}
+                                        >
+                                            🏀 "Who's playing in the NBA today?"
+                                        </div>
+                                        <div 
+                                            className="query-example"
+                                            onClick={() => handleExampleClick("What games are happening right now?")}
+                                        >
+                                            🎮 "What games are happening right now?"
+                                        </div>
+                                    </div>
+                                    
+                                    <p style={{ marginTop: '2rem', fontSize: '0.9rem', opacity: 0.7 }}>
+                                        💡 Tip: I remember our conversation context!
+                                    </p>
+                                </div>
+                            ) : (
+                                messages.map(message => (
+                                    <div key={message.id} className={`message ${message.type}-message`}>
+                                        <div className="message-header">
+                                            <div className={`message-avatar ${message.type === 'user' ? 'user-avatar' : 'yappy-avatar'}`}>
+                                                {message.type === 'user' ? 'U' : '🐕'}
+                                            </div>
+                                            <strong>{message.type === 'user' ? 'You' : 'Yappy'}</strong>
+                                        </div>
+                                        
+                                        {message.contextUsed && (
+                                            <div className="context-indicator">
+                                                🧠 Used conversation context
+                                            </div>
+                                        )}
+                                        
+                                        {message.webSearched && (
+                                            <div className="search-indicator">
+                                                🔍 Searched for current information
+                                            </div>
+                                        )}
+                                        
+                                        <div className="message-content">
+                                            {formatMessage(message.content)}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            
+                            {isLoading && (
+                                <div className="message assistant-message">
+                                    <div className="message-header">
+                                        <div className="message-avatar yappy-avatar">🐕</div>
+                                        <strong>Yappy</strong>
+                                    </div>
+                                    <div className="search-indicator">
+                                        <div className="loading-spinner"></div>
+                                        Fetching current information...
+                                    </div>
+                                    <div className="message-content">
+                                        <div className="loading-spinner"></div> Thinking...
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+                        
+                        <div className="chat-input-container">
+                            <div className="chat-input-wrapper">
+                                <textarea
+                                    className="chat-input"
+                                    value={inputMessage}
+                                    onChange={(e) => setInputMessage(e.target.value)}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage();
+                                        }
+                                    }}
+                                    placeholder="Ask me anything... I remember our conversation!"
+                                    rows="1"
+                                />
+                                <button
+                                    className="send-button"
+                                    onClick={() => handleSendMessage()}
+                                    disabled={!inputMessage.trim() || isLoading}
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        function LoginScreen({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [isRegistering, setIsRegistering] = useState(false);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                if (isRegistering) {
+                    try {
+                        await axios.post(`${API_BASE}/auth/register`, {
+                            username,
+                            password
+                        });
+                        alert('Registration successful! You can now login.');
+                        setIsRegistering(false);
+                    } catch (error) {
+                        alert('Registration failed: ' + (error.response?.data?.detail || error.message));
+                    }
+                } else {
+                    onLogin(username, password);
+                }
+            };
+            
+            return (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '100vh',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                }}>
+                    <div style={{
+                        background: 'white',
+                        padding: '3rem',
+                        borderRadius: '20px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                        width: '400px',
+                        textAlign: 'center'
+                    }}>
+                        <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🐕 Yappy AI v4</h1>
+                        <p style={{ color: '#666', marginBottom: '2rem' }}>Context-Aware AI Assistant</p>
+                        
+                        <form onSubmit={handleSubmit}>
+                            <input
+                                type="text"
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem',
+                                    marginBottom: '1rem',
+                                    border: '2px solid #e9ecef',
+                                    borderRadius: '10px',
+                                    fontSize: '1rem'
+                                }}
+                                required
+                            />
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem',
+                                    marginBottom: '1.5rem',
+                                    border: '2px solid #e9ecef',
+                                    borderRadius: '10px',
+                                    fontSize: '1rem'
+                                }}
+                                required
+                            />
+                            <button
+                                type="submit"
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem',
+                                    background: '#667eea',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    fontSize: '1.1rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                {isRegistering ? 'Register' : 'Login'}
+                            </button>
+                        </form>
+                        
+                        <p style={{ marginTop: '1.5rem', color: '#666' }}>
+                            {isRegistering ? 'Already have an account?' : "Don't have an account?"}
+                            <button
+                                onClick={() => setIsRegistering(!isRegistering)}
+                                style={{
+                                    marginLeft: '0.5rem',
+                                    color: '#667eea',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline'
+                                }}
+                            >
+                                {isRegistering ? 'Login' : 'Register'}
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+        
+        ReactDOM.render(<YappyV4 />, document.getElementById('root'));
+    </script>
+</body>
+</html>
