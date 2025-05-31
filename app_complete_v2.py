@@ -315,12 +315,18 @@ class AgentRouter:
     
     def __init__(self):
         self.routing_rules = {
-            "code": ["python", "javascript", "java", "code", "function", "class", "debug", "error", "implement"],
-            "file": ["file", "directory", "folder", "find", "search", "locate", "read", "write"],
-            "browser": ["website", "browse", "search web", "google", "url", "click", "navigate"],
-            "planner": ["plan", "project", "steps", "complex", "multiple tasks", "organize", "workflow"],
+            "code": ["python", "javascript", "java", "code", "function", "class", "debug", "error", "implement", "program", "script", "compile", "run"],
+            "file": ["file", "directory", "folder", "find", "locate", "read", "write", "pdf", "document", "csv", "json", "xml"],
+            "browser": ["website", "browse", "web page", "click", "navigate", "selenium", "scrape"],
+            "planner": ["plan", "project", "steps", "complex", "multiple tasks", "organize", "workflow", "break down", "coordinate"],
             "mcp": ["mcp", "tool", "server", "protocol"],
         }
+        
+        # Keywords that should default to casual agent for web search
+        self.casual_triggers = [
+            "weather", "news", "current", "latest", "today", "price", "who is", 
+            "what is", "where is", "when is", "how much", "temperature"
+        ]
     
     async def route_query(self, query: str, file_data: Optional[Dict] = None) -> AgentType:
         """Determine the best agent for a query"""
@@ -330,8 +336,12 @@ class AgentRouter:
         if file_data:
             return AgentType.FILE
         
-        # Check for explicit agent mentions
-        if "code" in query_lower or "program" in query_lower:
+        # Check for casual triggers that need web search
+        if any(trigger in query_lower for trigger in self.casual_triggers):
+            return AgentType.CASUAL
+        
+        # Check for explicit code-related queries
+        if any(keyword in query_lower for keyword in ["code", "program", "function", "debug", "implement"]):
             return AgentType.CODER
         
         # Check routing rules
@@ -343,12 +353,16 @@ class AgentRouter:
         
         if scores:
             best_agent = max(scores, key=scores.get)
+            # Don't route to browser agent for general "search" queries
+            if best_agent == "browser" and "search" in query_lower and not any(w in query_lower for w in ["website", "web page", "browse"]):
+                return AgentType.CASUAL
             return AgentType(best_agent)
         
         # Complex queries go to planner
-        if len(query.split()) > 20 or "and" in query_lower and "then" in query_lower:
+        if len(query.split()) > 20 or ("and" in query_lower and "then" in query_lower):
             return AgentType.PLANNER
         
+        # Default to casual for general queries
         return AgentType.CASUAL
 
 # Code Interpreters
@@ -482,61 +496,138 @@ class WebSearch:
     
     @staticmethod
     async def search(query: str) -> List[Dict[str, str]]:
-        """Search the web using DuckDuckGo"""
+        """Search the web using multiple approaches"""
+        results = []
+        
+        # Special handling for weather queries
+        if "weather" in query.lower():
+            location = "San Francisco"  # Default location
+            # Extract location from query
+            location_match = re.search(r'weather (?:in|for|at) ([\w\s,]+)', query, re.IGNORECASE)
+            if location_match:
+                location = location_match.group(1).strip()
+            
+            try:
+                async with httpx.AsyncClient() as client:
+                    # Use wttr.in for weather
+                    weather_response = await client.get(
+                        f"https://wttr.in/{location}?format=j1",
+                        timeout=5.0
+                    )
+                    
+                    if weather_response.status_code == 200:
+                        weather_data = weather_response.json()
+                        current = weather_data.get("current_condition", [{}])[0]
+                        
+                        weather_info = f"Current weather in {location}:\n"
+                        weather_info += f"Temperature: {current.get('temp_F', 'N/A')}°F ({current.get('temp_C', 'N/A')}°C)\n"
+                        weather_info += f"Condition: {current.get('weatherDesc', [{}])[0].get('value', 'N/A')}\n"
+                        weather_info += f"Feels like: {current.get('FeelsLikeF', 'N/A')}°F\n"
+                        weather_info += f"Humidity: {current.get('humidity', 'N/A')}%\n"
+                        weather_info += f"Wind: {current.get('windspeedMiles', 'N/A')} mph"
+                        
+                        results.append({
+                            "title": f"Weather in {location}",
+                            "snippet": weather_info,
+                            "url": f"https://wttr.in/{location}"
+                        })
+            except Exception as e:
+                print(f"Weather search error: {e}")
+        
+        # For news and current events, use DuckDuckGo search
         try:
-            # Use DuckDuckGo instant answer API
             async with httpx.AsyncClient() as client:
-                response = await client.get(
+                # Try DuckDuckGo instant answers first
+                ddg_response = await client.get(
                     "https://api.duckduckgo.com/",
                     params={
                         "q": query,
                         "format": "json",
-                        "no_html": "1"
-                    }
+                        "no_html": "1",
+                        "skip_disambig": "1"
+                    },
+                    timeout=5.0
                 )
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    results = []
+                if ddg_response.status_code == 200:
+                    data = ddg_response.json()
+                    
+                    # Check for instant answer
+                    if data.get("Answer"):
+                        results.append({
+                            "title": "Answer",
+                            "snippet": data["Answer"],
+                            "url": data.get("AnswerType", "")
+                        })
                     
                     # Abstract text
                     if data.get("Abstract"):
                         results.append({
-                            "title": "Summary",
+                            "title": data.get("Heading", "Summary"),
                             "snippet": data["Abstract"],
                             "url": data.get("AbstractURL", "")
+                        })
+                    
+                    # Definition
+                    if data.get("Definition"):
+                        results.append({
+                            "title": "Definition",
+                            "snippet": data["Definition"],
+                            "url": data.get("DefinitionURL", "")
                         })
                     
                     # Related topics
                     for topic in data.get("RelatedTopics", [])[:3]:
                         if isinstance(topic, dict) and "Text" in topic:
                             results.append({
-                                "title": "Related",
+                                "title": topic.get("FirstURL", "").split("/")[-1].replace("_", " ") if topic.get("FirstURL") else "Related",
                                 "snippet": topic["Text"],
                                 "url": topic.get("FirstURL", "")
                             })
+                
+                # If still no results, try a general web search using DuckDuckGo HTML
+                if not results:
+                    search_response = await client.get(
+                        "https://html.duckduckgo.com/html/",
+                        params={"q": query},
+                        timeout=5.0
+                    )
                     
-                    # If no results, use a general response
-                    if not results:
-                        results.append({
-                            "title": "Search Query",
-                            "snippet": f"I'll help you search for information about: {query}",
-                            "url": ""
-                        })
-                    
-                    return results
-                else:
-                    return [{
-                        "title": "Error",
-                        "snippet": f"Search failed with status code: {response.status_code}",
-                        "url": ""
-                    }]
+                    if search_response.status_code == 200:
+                        # Simple parsing of HTML response
+                        text = search_response.text
+                        # Extract snippets from search results
+                        snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', text, re.DOTALL)
+                        titles = re.findall(r'<a class="result__a"[^>]*>(.*?)</a>', text, re.DOTALL)
+                        
+                        for i in range(min(3, len(snippets), len(titles))):
+                            clean_title = re.sub(r'<[^>]+>', '', titles[i]).strip()
+                            clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+                            
+                            if clean_title and clean_snippet:
+                                results.append({
+                                    "title": clean_title,
+                                    "snippet": clean_snippet,
+                                    "url": ""
+                                })
+                
         except Exception as e:
-            return [{
-                "title": "Error",
-                "snippet": f"Search error: {str(e)}",
+            print(f"Search error: {e}")
+            results.append({
+                "title": "Search Error",
+                "snippet": f"Unable to search at this time. Error: {str(e)}",
                 "url": ""
-            }]
+            })
+        
+        # If still no results, provide a helpful message
+        if not results:
+            results.append({
+                "title": "Search Query",
+                "snippet": f"I couldn't find specific results for '{query}', but I'll do my best to help based on my knowledge.",
+                "url": ""
+            })
+        
+        return results
 
 # Memory Compression
 class MemoryCompressor:
@@ -590,21 +681,61 @@ class CasualAgent(BaseAgent):
     
     async def process(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process casual conversation"""
-        # Check if web search is needed
+        # Enhanced list of keywords that trigger web search
+        search_keywords = [
+            'latest', 'current', 'today', 'news', 'weather', 'price', 'stock',
+            'what is happening', 'recent', 'update', 'search', 'find', 'who is',
+            'when is', 'when was', 'where is', 'how much', 'cost', 'event', 'schedule',
+            'score', 'result', 'trending', 'popular', 'best', 'top', 'new',
+            '2024', '2025', 'now', 'currently', 'present', 'modern', 'contemporary',
+            'live', 'real-time', 'breaking', 'urgent', 'upcoming', 'forecast'
+        ]
+        
+        # Check if query needs current information
+        query_lower = query.lower()
+        needs_search = False
+        
+        # Check for explicit search keywords
+        if any(keyword in query_lower for keyword in search_keywords):
+            needs_search = True
+        
+        # Check for questions about specific people, places, or things
+        if any(query_lower.startswith(q) for q in ['who is', 'what is', 'where is', 'when is', 'how is']):
+            needs_search = True
+        
+        # Check for questions that likely need current data
+        if '?' in query and any(word in query_lower for word in ['price', 'cost', 'weather', 'temperature', 'news']):
+            needs_search = True
+        
         web_results = None
-        search_keywords = ['latest', 'current', 'news', 'weather', 'search', 'find']
+        enhanced_query = query
         
-        if any(keyword in query.lower() for keyword in search_keywords):
+        if needs_search:
+            print(f"Searching web for: {query}")
             web_results = await WebSearch.search(query)
+            
             if web_results:
-                context['web_results'] = web_results
-                query += f"\n\nWeb search results: {json.dumps(web_results, indent=2)}"
+                # Format web results for LLM context
+                web_context = "\n\n**Current Information from Web Search:**\n"
+                for i, result in enumerate(web_results, 1):
+                    web_context += f"\n{i}. {result['title']}:\n{result['snippet']}\n"
+                
+                # Create enhanced query with instructions
+                enhanced_query = f"""Based on the following web search results, please answer the user's question with the most current and accurate information.
+
+User Question: {query}
+
+{web_context}
+
+Please provide a helpful response using the above information. If the search results don't fully answer the question, combine them with your knowledge to give the best possible answer."""
         
+        # Get LLM response with enhanced context
         response, tokens = await self.llm_handler.get_response(
-            query,
+            enhanced_query,
             context.get('model_name', 'openai'),
             context.get('api_key', ''),
-            context.get('conversation_history', [])
+            context.get('conversation_history', []),
+            self.agent_type
         )
         
         return {
@@ -678,13 +809,14 @@ class FileAgent(BaseAgent):
     async def process(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process file operations"""
         tools_used = []
+        enhanced_query = query
         
         # Handle file uploads
         if context.get('file_data'):
             file_info = context['file_data']
-            query += f"\n\nFile uploaded: {file_info.get('filename', 'Unknown')}"
-            query += f"\nFile type: {file_info.get('type', 'Unknown')}"
-            query += f"\nFile content preview: {file_info.get('content', '')[:500]}..."
+            enhanced_query += f"\n\nFile uploaded: {file_info.get('filename', 'Unknown')}"
+            enhanced_query += f"\nFile type: {file_info.get('type', 'Unknown')}"
+            enhanced_query += f"\nFile content preview: {file_info.get('content', '')[:500]}..."
             tools_used.append("file_upload")
         
         # Check for file operations
@@ -697,14 +829,24 @@ class FileAgent(BaseAgent):
                 pattern = "*.js"
             
             files = await FileOperations.find_files(pattern)
-            query += f"\n\nFound files matching {pattern}: {files[:10]}"
+            enhanced_query += f"\n\nFound files matching {pattern}: {files[:10]}"
             tools_used.append("file_finder")
         
+        # Check if web search is needed for file-related information
+        if any(keyword in query.lower() for keyword in ['documentation', 'docs', 'guide', 'tutorial', 'example']):
+            web_results = await WebSearch.search(query)
+            if web_results:
+                enhanced_query += "\n\n**Web search results for documentation:**\n"
+                for result in web_results[:2]:
+                    enhanced_query += f"\n{result['title']}: {result['snippet']}\n"
+                tools_used.append("web_search")
+        
         response, tokens = await self.llm_handler.get_response(
-            query,
+            enhanced_query,
             context.get('model_name', 'openai'),
             context.get('api_key', ''),
-            context.get('conversation_history', [])
+            context.get('conversation_history', []),
+            self.agent_type
         )
         
         return {
