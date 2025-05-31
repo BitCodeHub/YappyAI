@@ -154,6 +154,7 @@ class ChatRequest(BaseModel):
     model_name: Optional[str] = "openai"
     conversation_id: Optional[str] = None
     stream: Optional[bool] = False
+    file_data: Optional[Dict[str, Any]] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -642,6 +643,87 @@ async def chat(
     """Chat with Yappy AI"""
     try:
         print(f"Chat request from {username}: {request.message[:50]}...")
+        
+        # Check if this is a file upload request
+        if request.file_data and request.file_data.get("type") == "application/pdf":
+            print("PDF file upload detected")
+            
+            # Process resume PDF
+            try:
+                import base64
+                import PyPDF2
+                from io import BytesIO
+                
+                file_content = request.file_data.get("content", "")
+                file_name = request.file_data.get("name", "resume.pdf")
+                
+                # Decode base64 PDF content
+                if file_content.startswith("data:application/pdf;base64,"):
+                    file_content = file_content.split(",")[1]
+                
+                pdf_bytes = base64.b64decode(file_content)
+                pdf_file = BytesIO(pdf_bytes)
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                
+                # Extract text from all pages
+                resume_text = ""
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    resume_text += page.extract_text() + "\n"
+                
+                print(f"Extracted {len(resume_text)} characters from PDF")
+                
+                # Create a resume scoring prompt
+                scoring_prompt = f"""You are an expert recruiter and resume evaluator. Please analyze this resume and provide:
+
+1. An overall score from 0-100
+2. Key strengths (3-5 bullet points)
+3. Areas for improvement (3-5 bullet points)
+4. Job fit analysis for common tech roles
+5. Specific recommendations to improve the resume
+
+Resume content:
+{resume_text[:3000]}... [truncated for length]
+
+Please format your response in a clear, professional manner with sections and bullet points."""
+                
+                # Get user's API key
+                user = await database.fetch_one(
+                    users_table.select().where(users_table.c.username == username)
+                )
+                api_keys = user.api_keys if user else {}
+                api_key = api_keys.get(request.model_name)
+                
+                # Get LLM response for resume scoring
+                response_text, tokens = await llm_handler.get_response(
+                    scoring_prompt,
+                    request.model_name,
+                    api_key,
+                    []
+                )
+                
+                # Add resume analysis header
+                final_response = f"🎯 **Resume Analysis for {file_name}**\n\n{response_text}"
+                
+                return ChatResponse(
+                    response=final_response,
+                    conversation_id=request.conversation_id or str(uuid.uuid4()),
+                    message_id=str(uuid.uuid4()),
+                    timestamp=datetime.now().isoformat(),
+                    model_used=request.model_name,
+                    tokens_used=tokens
+                )
+                
+            except Exception as e:
+                print(f"Error processing PDF: {e}")
+                return ChatResponse(
+                    response=f"Woof! 🐕 I had trouble reading the PDF file. Error: {str(e)}. Could you try uploading it again or paste the text content?",
+                    conversation_id=request.conversation_id or str(uuid.uuid4()),
+                    message_id=str(uuid.uuid4()),
+                    timestamp=datetime.now().isoformat(),
+                    model_used=request.model_name,
+                    tokens_used=0
+                )
         
         # Get user
         query = users_table.select().where(users_table.c.username == username)
