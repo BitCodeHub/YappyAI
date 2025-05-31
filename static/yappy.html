@@ -1384,9 +1384,12 @@
             const fileInputRef = useRef(null);
 
             useEffect(() => {
+                console.log('🐕 App component mounted/updated');
                 const token = localStorage.getItem('yappy_token');
                 const apiKey = localStorage.getItem('yappy_api_key');
                 const llmModel = localStorage.getItem('yappy_llm_model');
+                
+                console.log('Auth check - token:', !!token, 'apiKey:', !!apiKey, 'model:', llmModel);
                 
                 if (token && apiKey && llmModel) {
                     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -1396,6 +1399,10 @@
                     localStorage.removeItem('yappy_llm_model');
                     localStorage.removeItem('yappy_api_key');
                 }
+                
+                return () => {
+                    console.log('🐕 App component unmounting');
+                };
             }, []);
 
             useEffect(() => {
@@ -1411,6 +1418,7 @@
             }, [isAuthenticated]);
 
             const handleLogin = (token, llmSettings) => {
+                console.log('🐕 handleLogin called with:', { token: !!token, model: llmSettings?.model });
                 setIsAuthenticated(true);
                 if (llmSettings) {
                     localStorage.setItem('yappy_llm_model', llmSettings.model);
@@ -1532,6 +1540,10 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 console.log('🐕 handleSubmit called');
+                console.log('Current query:', query);
+                console.log('Is authenticated:', isAuthenticated);
+                console.log('Messages before:', messages);
+                
                 checkHealth();
                 if (!query.trim() && !uploadedFile) {
                     console.log('Empty query and no file');
@@ -1539,6 +1551,7 @@
                 }
                 
                 console.log('🐕 Starting message send process');
+                console.log('Current state - isLoading:', isLoading, 'error:', error);
                 
                 let userMessage = query;
                 if (uploadedFile) {
@@ -1694,7 +1707,10 @@
                 });
             };
 
+            console.log('🐕 App render - isAuthenticated:', isAuthenticated, 'messages:', messages.length);
+            
             if (!isAuthenticated) {
+                console.log('🐕 Showing Auth component');
                 return <Auth onLogin={handleLogin} />;
             }
 
