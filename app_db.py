@@ -40,11 +40,15 @@ except ImportError:
     Groq = None
 
 # Database configuration
+print("Environment variables:")
+print(f"DATABASE_URL from env: {os.environ.get('DATABASE_URL', 'NOT SET')[:50]}...")
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./yappy.db")
 
 # Fix for Render PostgreSQL URLs (they use postgres:// but we need postgresql://)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print(f"Converted to: {DATABASE_URL[:50]}...")
 
 database = Database(DATABASE_URL)
 metadata = MetaData()
