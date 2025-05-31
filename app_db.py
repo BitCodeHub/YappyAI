@@ -392,6 +392,35 @@ async def search_with_context(query: str, context: Dict[str, Any]) -> str:
         except Exception as e:
             print(f"Crypto search error: {e}")
     
+    # For president/government queries, force a search
+    if any(word in query.lower() for word in ["president", "prime minister", "leader", "government"]):
+        try:
+            # Add current year to get latest info
+            search_query = f"{query} 2024 2025 current"
+            ddg_url = f"https://api.duckduckgo.com/?q={quote(search_query)}&format=json&no_html=1"
+            response = requests.get(ddg_url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("Abstract"):
+                    web_results.append(f"Current Information: {data['Abstract']}")
+                if data.get("Answer"):
+                    web_results.append(f"Direct Answer: {data['Answer']}")
+                    
+                # Also try instant answer
+                if data.get("Heading"):
+                    web_results.append(f"Topic: {data['Heading']}")
+                    
+                # Try to get infobox data
+                if data.get("Infobox") and isinstance(data["Infobox"], dict):
+                    content = data["Infobox"].get("content", [])
+                    for item in content[:5]:
+                        if isinstance(item, dict) and "label" in item and "value" in item:
+                            if any(term in item["label"].lower() for term in ["president", "leader", "office", "incumbent"]):
+                                web_results.append(f"{item['label']}: {item['value']}")
+        except Exception as e:
+            print(f"President search error: {e}")
+    
     # General web search fallback
     if not web_results:
         try:
@@ -406,6 +435,10 @@ async def search_with_context(query: str, context: Dict[str, Any]) -> str:
                     web_results.append(f"Answer: {data['Answer']}")
                 if data.get("Definition"):
                     web_results.append(f"Definition: {data['Definition']}")
+                    
+                # If still no results, indicate we searched
+                if not web_results:
+                    web_results.append(f"I searched for '{query}' but couldn't find specific current information. The answer may require real-time data.")
         except Exception as e:
             print(f"General search error: {e}")
     
@@ -422,9 +455,10 @@ class LLMHandler:
         IMPORTANT:
         1. When users ask follow-up questions (like "next 7 days" after asking about weather), understand they're referring to the previous topic
         2. Always use the current date ({current_date}) for any date-related responses
-        3. When you receive web search results, use them as the PRIMARY source of truth
-        4. For weather forecasts, provide specific dates and day names
-        5. For NBA games, mention if games are live, final scores, or upcoming
+        3. When you receive web search results, use them as the PRIMARY source of truth - NEVER make up information
+        4. If web search results say "couldn't find specific current information", admit you don't have current data
+        5. For factual questions (who is president, CEO, etc), ONLY use information from web search results
+        6. NEVER guess or make up information about current events, people, or facts
         
         You love to help and get excited about every task! Use dog-related expressions naturally like:
         - Starting responses with "Woof!" when excited
@@ -688,18 +722,24 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             'what is happening', 'recent', 'update', 'search', 'find', 'who is',
             'when is', 'where is', 'how much', 'cost', 'event', 'schedule',
             'score', 'result', 'trending', 'popular', 'best', 'top', 'new',
-            'nba', 'basketball', 'game', 'playing', 'btc', 'bitcoin', 'crypto'
+            'nba', 'basketball', 'game', 'playing', 'btc', 'bitcoin', 'crypto',
+            'president', 'prime minister', 'leader', 'government', 'election',
+            'ceo', 'founder', 'owner', 'director', 'head'
         ]
         
         needs_web_search = any(keyword in request.message.lower() for keyword in web_search_keywords)
         
         # Questions that often need web search
-        question_starters = ['what', 'who', 'when', 'where', 'how much', 'is there', 'are there']
+        question_starters = ['what', 'who', 'when', 'where', 'how much', 'is there', 'are there', 'which', 'why']
         starts_with_question = any(request.message.lower().strip().startswith(starter) for starter in question_starters)
+        
+        # ALWAYS search for factual questions about people, places, current events
+        factual_patterns = ['president', 'minister', 'leader', 'country', 'company', 'organization']
+        needs_factual_search = any(pattern in request.message.lower() for pattern in factual_patterns)
         
         # Perform web search if needed
         web_context = ""
-        if is_followup or needs_web_search or starts_with_question or "?" in request.message:
+        if is_followup or needs_web_search or starts_with_question or needs_factual_search or "?" in request.message:
             print(f"Web search needed for: {request.message}")
             
             # Perform context-aware search
