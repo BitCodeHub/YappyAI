@@ -79,7 +79,8 @@ engine = sqlalchemy.create_engine(DATABASE_URL)
 async def lifespan(app: FastAPI):
     # Startup - Connect to database
     print("🐕 Woof! Yappy AI is starting up...")
-    print(f"Database URL: {DATABASE_URL[:20]}...")
+    print(f"Database URL: {DATABASE_URL[:50]}...")
+    print(f"Database type: {'PostgreSQL' if 'postgresql' in DATABASE_URL else 'SQLite'}")
     
     try:
         await database.connect()
@@ -415,6 +416,35 @@ async def list_users():
         print(f"Error listing users: {e}")
         return {"error": str(e), "users": []}
 
+@app.get("/admin/db-info")
+async def database_info():
+    """Get database information"""
+    try:
+        info = {
+            "database_url": DATABASE_URL[:30] + "...",
+            "is_connected": database.is_connected,
+            "type": "PostgreSQL" if "postgresql" in DATABASE_URL else "SQLite"
+        }
+        
+        if database.is_connected:
+            # Count tables
+            if "postgresql" in DATABASE_URL:
+                table_query = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+            else:
+                table_query = "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+            
+            result = await database.fetch_one(query=table_query)
+            info["table_count"] = result[0] if result else 0
+            
+            # Count users
+            user_count_query = users_table.select()
+            users = await database.fetch_all(user_count_query)
+            info["user_count"] = len(users)
+        
+        return info
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/admin/test-password")
 async def test_password(request: dict):
     """Test password hashing (for debugging)"""
@@ -488,6 +518,13 @@ async def signup(user: UserSignup):
         verify_query = users_table.select().where(users_table.c.username == user.username)
         created_user = await database.fetch_one(verify_query)
         print(f"User verification: {created_user is not None}")
+        
+        # Double check - list all users after creation
+        all_users_query = users_table.select()
+        all_users = await database.fetch_all(all_users_query)
+        print(f"Total users after registration: {len(all_users)}")
+        for u in all_users:
+            print(f"  - {u.username} (id: {u.id})")
         
         # Create token
         token = create_token(user.username)
