@@ -645,6 +645,17 @@
             background: none;
             padding: 0;
         }
+        
+        /* Agent item styles */
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -992,6 +1003,7 @@
             const [uploadedFile, setUploadedFile] = useState(null);
             const [fileContent, setFileContent] = useState(null);
             const [showSettings, setShowSettings] = useState(false);
+            const [showAgents, setShowAgents] = useState(false);
             const messagesEndRef = useRef(null);
             const inputRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -1134,6 +1146,9 @@
                             <h1>Yappy</h1>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button onClick={() => setShowAgents(true)} className="logout-btn" title="AI Agents">
+                                🤖
+                            </button>
                             <button onClick={() => setShowSettings(true)} className="logout-btn">
                                 Settings
                             </button>
@@ -1229,6 +1244,110 @@
                     
                     {showSettings && (
                         <Settings onClose={() => setShowSettings(false)} />
+                    )}
+                    
+                    {showAgents && (
+                        <div className="modal-overlay" onClick={() => setShowAgents(false)}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <h2 style={{ marginBottom: '1rem' }}>🤖 AI Agent Army</h2>
+                                
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                        Specialized AI agents ready to help you:
+                                    </p>
+                                    
+                                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>💬</span>
+                                            <div>
+                                                <strong>Casual Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    General chat and simple tasks
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>🔍</span>
+                                            <div>
+                                                <strong>Research Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    Deep research & fact-checking
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>📊</span>
+                                            <div>
+                                                <strong>Data Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    Data analysis & visualization
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>🌐</span>
+                                            <div>
+                                                <strong>Browser Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    Web browsing & automation
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>💻</span>
+                                            <div>
+                                                <strong>Code Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    Code generation & debugging
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="agent-item">
+                                            <span style={{ fontSize: '1.5rem' }}>🔄</span>
+                                            <div>
+                                                <strong>Automation Agent</strong>
+                                                <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                                                    Workflow automation & scheduling
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ 
+                                    background: '#f0f9ff', 
+                                    padding: '1rem', 
+                                    borderRadius: '8px',
+                                    marginBottom: '1rem'
+                                }}>
+                                    <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                                        <strong>Tip:</strong> Use @agentname to target a specific agent, 
+                                        or let Yappy automatically orchestrate multiple agents for complex tasks!
+                                    </p>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => setShowAgents(false)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: '#e5e7eb',
+                                        color: '#374151',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
             );

@@ -17,6 +17,9 @@
     <!-- Marked for markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
+    <!-- Agent Dashboard Component -->
+    <script src="/static/agent-dashboard.js"></script>
+    
     <style>
         /* CSS Variables for Theme */
         :root {
@@ -1611,6 +1614,7 @@
             const [fileContent, setFileContent] = useState(null);
             const [filePreview, setFilePreview] = useState(null);
             const [showSettings, setShowSettings] = useState(false);
+            const [showAgentDashboard, setShowAgentDashboard] = useState(false);
             const messagesEndRef = useRef(null);
             const fileInputRef = useRef(null);
 
@@ -1961,6 +1965,9 @@
                                 <h1>Yappy</h1>
                             </div>
                             <div className="header-buttons">
+                                <button onClick={() => setShowAgentDashboard(true)} className="logout-button">
+                                    🤖 Agents
+                                </button>
                                 <button onClick={() => setShowSettings(true)} className="logout-button">
                                     Settings
                                 </button>
@@ -2166,6 +2173,12 @@
                     </main>
                     {showSettings && (
                         <Settings onClose={() => setShowSettings(false)} />
+                    )}
+                    {showAgentDashboard && (
+                        <AgentDashboard 
+                            isOpen={showAgentDashboard} 
+                            onClose={() => setShowAgentDashboard(false)} 
+                        />
                     )}
                 </div>
             );

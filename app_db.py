@@ -897,6 +897,16 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
 # Initialize components
 llm_handler = LLMHandler()
 
+# Import enhanced handler if available
+try:
+    from sources.llm_handler_v2 import EnhancedLLMHandler
+    enhanced_handler = EnhancedLLMHandler()
+    MULTI_AGENT_ENABLED = True
+except ImportError:
+    enhanced_handler = None
+    MULTI_AGENT_ENABLED = False
+    logger.warning("Enhanced multi-agent system not available")
+
 # API Endpoints
 @app.get("/")
 async def root(request: Request):
@@ -1316,6 +1326,114 @@ async def get_conversation(conversation_id: str, username: str = Depends(verify_
     except Exception as e:
         logger.error(f"Get conversation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to get conversation")
+
+# Multi-Agent System Endpoints
+@app.get("/api/agents", dependencies=[Depends(verify_token)])
+async def get_agents(username: str = Depends(verify_token)):
+    """Get available agents and their capabilities"""
+    if not MULTI_AGENT_ENABLED:
+        return {"error": "Multi-agent system not enabled"}
+    
+    return {
+        "agents": enhanced_handler.get_capabilities(),
+        "multi_agent_enabled": True
+    }
+
+@app.get("/api/agents/status", dependencies=[Depends(verify_token)])
+async def get_agent_status(username: str = Depends(verify_token)):
+    """Get real-time status of all agents"""
+    if not MULTI_AGENT_ENABLED:
+        return {"error": "Multi-agent system not enabled"}
+    
+    return enhanced_handler.get_agent_status()
+
+@app.post("/api/tasks", dependencies=[Depends(verify_token)])
+async def create_task(request: ChatRequest, username: str = Depends(verify_token)):
+    """Create a new orchestrated task"""
+    if not MULTI_AGENT_ENABLED:
+        return {"error": "Multi-agent system not enabled"}
+    
+    try:
+        # Get user for API keys
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        api_keys = user.api_keys or {}
+        api_key = api_keys.get(request.model_name)
+        
+        # Create task through enhanced handler
+        response, tokens = await enhanced_handler.get_response(
+            request.message,
+            request.model_name,
+            api_key
+        )
+        
+        # Extract task ID from response
+        import re
+        task_id_match = re.search(r'Task ID.*?`([^`]+)`', response)
+        task_id = task_id_match.group(1) if task_id_match else None
+        
+        return {
+            "task_id": task_id,
+            "message": response,
+            "status": "created"
+        }
+        
+    except Exception as e:
+        logger.error(f"Task creation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/tasks/{task_id}", dependencies=[Depends(verify_token)])
+async def get_task_status(task_id: str, username: str = Depends(verify_token)):
+    """Get status of a specific task"""
+    if not MULTI_AGENT_ENABLED:
+        return {"error": "Multi-agent system not enabled"}
+    
+    return enhanced_handler.get_task_status(task_id)
+
+@app.post("/api/chat/multi-agent", dependencies=[Depends(verify_token)])
+async def chat_multi_agent(request: ChatRequest, username: str = Depends(verify_token)):
+    """Chat endpoint that uses the multi-agent system"""
+    if not MULTI_AGENT_ENABLED:
+        # Fallback to regular chat
+        return await chat(request, username)
+    
+    try:
+        # Get user and API keys
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        api_keys = user.api_keys or {}
+        api_key = api_keys.get(request.model_name)
+        
+        # Process through enhanced handler
+        response_text, tokens = await enhanced_handler.get_response(
+            request.message,
+            request.model_name,
+            api_key,
+            file_data=request.file_data.dict() if request.file_data else None
+        )
+        
+        # Determine which agent was used
+        agent_info = enhanced_handler.get_agent_status()
+        
+        return {
+            "response": response_text,
+            "model_used": request.model_name,
+            "tokens_used": tokens,
+            "agents_involved": agent_info.get("agents", {}),
+            "multi_agent": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Multi-agent chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
