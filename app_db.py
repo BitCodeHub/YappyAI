@@ -512,9 +512,11 @@ class LLMHandler:
         if file_data:
             # Add file context to prompt
             file_info = f"\n\n[User uploaded file: {file_data['name']} (type: {file_data['type']})]"
+            logger.info(f"Processing file upload: {file_data['name']} ({file_data['type']})")
             
             # For images, we need to use a vision-capable model
             if file_data['type'].startswith('image/'):
+                logger.info(f"Handling image with model: {model_name}, has_api_key: {bool(api_key)}")
                 return await self._handle_image(prompt, file_data, model_name, api_key, conversation_history)
             else:
                 # For text files, include content in the prompt
@@ -537,7 +539,8 @@ class LLMHandler:
         """Handle image analysis using vision models"""
         
         if not api_key:
-            return "Woof! 🐕 I need an API key to analyze images! Please add one in your profile settings.", 0
+            logger.warning(f"No API key found for model: {model_name}")
+            return f"Woof! 🐕 I need an API key for {model_name} to analyze images! Please add one in your profile settings.", 0
         
         try:
             # For OpenAI, use GPT-4 Vision
@@ -564,7 +567,7 @@ class LLMHandler:
                 ]
                 
                 response = client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model="gpt-4o",  # Updated to use gpt-4o which supports vision
                     messages=messages,
                     max_tokens=1000
                 )
@@ -659,7 +662,17 @@ Tell me what's in the image and I'll help you with any questions about it!
             
         except Exception as e:
             logger.error(f"Image analysis error: {e}")
-            return f"Woof! 🐕 I encountered an error analyzing the image: {str(e)}", 0
+            error_msg = str(e)
+            
+            # Provide more helpful error messages
+            if "model does not exist" in error_msg.lower():
+                return f"Woof! 🐕 The vision model isn't available. Make sure you're using a valid OpenAI API key with access to GPT-4 vision models.", 0
+            elif "api key" in error_msg.lower():
+                return f"Woof! 🐕 There's an issue with your API key. Please check that it's valid and has the necessary permissions.", 0
+            elif "rate limit" in error_msg.lower():
+                return f"Woof! 🐕 You've hit the rate limit. Please wait a moment and try again.", 0
+            else:
+                return f"Woof! 🐕 I encountered an error analyzing the image: {error_msg}", 0
     
     async def _call_llm(self, system_prompt: str, user_prompt: str, model_name: str, 
                         api_key: Optional[str], conversation_history: List[Dict] = None) -> str:
@@ -982,6 +995,11 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         # Get API key for the model
         api_keys = user.api_keys or {}
         api_key = api_keys.get(request.model_name)
+        
+        # Debug logging
+        logger.info(f"User: {username}, Model: {request.model_name}")
+        logger.info(f"API keys available: {list(api_keys.keys())}")
+        logger.info(f"API key found: {'Yes' if api_key else 'No'}")
         
         # Get or create conversation
         conv_id = request.conversation_id or str(uuid.uuid4())
