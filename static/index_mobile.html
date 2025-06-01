@@ -919,8 +919,18 @@
                 setIsLoading(true);
 
                 try {
-                    // Default to openai for now, user will configure in settings
-                    const model = 'openai';
+                    // Get available API keys to determine which model to use
+                    let model = 'openai'; // default fallback
+                    try {
+                        const keysResponse = await axios.get('/api/user/api-keys');
+                        const availableModels = keysResponse.data.models || [];
+                        if (availableModels.length > 0) {
+                            // Use the first available model
+                            model = availableModels[0];
+                        }
+                    } catch (err) {
+                        console.log('Could not fetch API keys, using default model');
+                    }
                     
                     const conversationId = localStorage.getItem('yappy_conversation_id') || 
                         `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

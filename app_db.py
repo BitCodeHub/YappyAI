@@ -1017,9 +1017,15 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             available_models = list(api_keys.keys())
             logger.warning(f"No API key for {request.model_name}, but found keys for: {available_models}")
             
+            # If user has only one API key configured, use it regardless of model name
+            if len(api_keys) == 1:
+                model_name, api_key = list(api_keys.items())[0]
+                logger.info(f"Using the only available API key from {model_name} for {request.model_name} request")
+                # Update the request model name to match the available key
+                request.model_name = model_name
             # TEMPORARY WORKAROUND: If requesting OpenAI but have any API key, use it
             # This helps users who accidentally saved their OpenAI key under wrong model
-            if request.model_name == "openai" and api_keys:
+            elif request.model_name == "openai" and api_keys:
                 # Try to find an OpenAI-looking key (starts with sk-)
                 for model, key in api_keys.items():
                     if key.startswith("sk-"):

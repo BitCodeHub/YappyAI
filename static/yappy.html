@@ -1793,8 +1793,18 @@
                     console.log('Sending query:', query);
                     setQuery('waiting for response...');
                     
-                    // Default to openai model, user will configure in settings
-                    const llmModel = 'openai';
+                    // Get available API keys to determine which model to use
+                    let llmModel = 'openai'; // default fallback
+                    try {
+                        const keysResponse = await axios.get('/api/user/api-keys');
+                        const availableModels = keysResponse.data.models || [];
+                        if (availableModels.length > 0) {
+                            // Use the first available model
+                            llmModel = availableModels[0];
+                        }
+                    } catch (err) {
+                        console.log('Could not fetch API keys, using default model');
+                    }
                     
                     // Generate a conversation ID if not exists
                     let conversationId = localStorage.getItem('yappy_conversation_id');
