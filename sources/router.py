@@ -10,8 +10,9 @@ from adaptive_classifier import AdaptiveClassifier
 from sources.agents.agent import Agent
 from sources.agents.code_agent import CoderAgent
 from sources.agents.casual_agent import CasualAgent
-from sources.agents.planner_agent import FileAgent
+from sources.agents.file_agent import FileAgent
 from sources.agents.browser_agent import BrowserAgent
+from sources.agents.planner_agent import PlannerAgent
 from sources.language import LanguageUtility
 from sources.utility import pretty_print, animate_thinking, timer_decorator
 from sources.logger import Logger
