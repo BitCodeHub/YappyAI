@@ -36,6 +36,8 @@
             --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             --safe-top: env(safe-area-inset-top);
             --safe-bottom: env(safe-area-inset-bottom);
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
         body {
@@ -72,25 +74,103 @@
         .logo {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
+            gap: 0.75rem;
+        }
+        
+        .yappy-logo-icon {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            animation: logoWiggle 4s ease-in-out infinite;
+        }
+        
+        @keyframes logoWiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+        
+        .yappy-mini-head {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            border-radius: 50% 50% 45% 45%;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .yappy-mini-ear {
+            position: absolute;
+            width: 8px;
+            height: 12px;
+            background: #8b4513;
+            border-radius: 80% 20% 50% 50%;
+            top: -3px;
+        }
+        
+        .yappy-mini-ear.left {
+            left: 3px;
+            transform: rotate(-25deg);
+        }
+        
+        .yappy-mini-ear.right {
+            right: 3px;
+            transform: rotate(25deg);
+        }
+        
+        .yappy-mini-eye {
+            position: absolute;
+            width: 4px;
+            height: 5px;
+            background: #333;
+            border-radius: 50%;
+            top: 10px;
+        }
+        
+        .yappy-mini-eye.left {
+            left: 8px;
+        }
+        
+        .yappy-mini-eye.right {
+            right: 8px;
+        }
+        
+        .yappy-mini-nose {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #333;
+            border-radius: 50%;
+            top: 15px;
+            left: 13.5px;
+        }
+        
+        .logo h1 {
+            margin: 0;
+            background: linear-gradient(135deg, #ffd89b 0%, #f9a826 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.5rem;
+            font-weight: 700;
         }
 
         .logout-btn {
-            background: none;
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
+            background: var(--gradient-secondary);
+            border: none;
+            color: white;
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.875rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
         }
 
         .logout-btn:active {
-            background: var(--secondary);
+            transform: translateY(1px);
+            box-shadow: 0 1px 4px rgba(240, 147, 251, 0.3);
         }
 
         /* Messages */
@@ -327,7 +407,7 @@
         }
 
         .send-btn {
-            background: var(--primary);
+            background: var(--gradient-primary);
             color: white;
             border: none;
             border-radius: 50%;
@@ -340,6 +420,7 @@
             transition: all 0.2s;
             flex-shrink: 0;
             font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
         .send-btn:disabled {
@@ -348,8 +429,8 @@
         }
 
         .send-btn:not(:disabled):active {
-            background: var(--primary-hover);
             transform: scale(0.95);
+            box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3);
         }
 
         /* Auth Screen */
@@ -360,16 +441,50 @@
             align-items: center;
             justify-content: center;
             padding: 1rem;
-            background: linear-gradient(135deg, #F3E7FF 0%, #E9D5FF 100%);
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            position: relative;
+        }
+        
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(240, 147, 251, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(79, 172, 254, 0.3) 0%, transparent 50%);
         }
 
         .auth-card {
             width: 100%;
             max-width: 400px;
-            background: white;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(60px);
             border-radius: 20px;
             padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 1;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            border-radius: 23px;
+            opacity: 0.7;
+            z-index: -1;
+            filter: blur(1px);
         }
 
         .auth-header {
@@ -378,9 +493,14 @@
         }
 
         .auth-header h1 {
-            color: var(--primary);
             font-size: 2rem;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 50%, #e0f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.8);
         }
 
         .auth-form {
@@ -393,22 +513,30 @@
         .form-group select {
             width: 100%;
             padding: 0.875rem;
-            border: 2px solid var(--border);
+            border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 12px;
             font-size: 1rem;
             outline: none;
             transition: all 0.2s;
-            background: white;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .form-group input:focus,
         .form-group select:focus {
-            border-color: var(--primary);
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 25px rgba(102, 126, 234, 0.5);
         }
 
         .submit-btn {
             padding: 0.875rem;
-            background: var(--primary);
+            background: var(--gradient-primary);
             color: white;
             border: none;
             border-radius: 12px;
@@ -417,6 +545,7 @@
             cursor: pointer;
             transition: all 0.2s;
             margin-top: 0.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
         .submit-btn:disabled {
@@ -425,15 +554,16 @@
         }
 
         .submit-btn:not(:disabled):active {
-            background: var(--primary-hover);
             transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
         .auth-switch {
             text-align: center;
             margin-top: 1.5rem;
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.85);
             font-size: 0.875rem;
+            font-weight: 400;
         }
 
         .auth-switch button {
@@ -596,7 +726,7 @@
                                 </div>
                             </div>
                             <h1>Yappy</h1>
-                            <p style={{ color: 'var(--text-secondary)' }}>Your AI Assistant</p>
+                            <p style={{ color: 'rgba(255, 255, 255, 0.85)' }}>Your AI Assistant</p>
                         </div>
                         
                         <form onSubmit={handleSubmit} className="auth-form">
@@ -992,8 +1122,16 @@
                 <div className="app">
                     <div className="header">
                         <div className="logo">
-                            <span>🐕</span>
-                            <span>Yappy</span>
+                            <div className="yappy-logo-icon">
+                                <div className="yappy-mini-head">
+                                    <div className="yappy-mini-ear left"></div>
+                                    <div className="yappy-mini-ear right"></div>
+                                    <div className="yappy-mini-eye left"></div>
+                                    <div className="yappy-mini-eye right"></div>
+                                    <div className="yappy-mini-nose"></div>
+                                </div>
+                            </div>
+                            <h1>Yappy</h1>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button onClick={() => setShowSettings(true)} className="logout-btn">
