@@ -540,6 +540,12 @@ class LLMHandler:
         
         if not api_key:
             logger.warning(f"No API key found for model: {model_name}")
+            # Check if there are API keys for other models
+            from typing import Dict
+            if hasattr(self, '_user_api_keys'):
+                available_models = list(self._user_api_keys.keys()) if self._user_api_keys else []
+                if available_models:
+                    return f"Woof! 🐕 I need an API key for {model_name} to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nPlease either:\n1. Switch to one of those models, or\n2. Add your {model_name} API key in your profile settings.", 0
             return f"Woof! 🐕 I need an API key for {model_name} to analyze images! Please add one in your profile settings.", 0
         
         try:
@@ -1001,6 +1007,12 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         logger.info(f"API keys available: {list(api_keys.keys())}")
         logger.info(f"API key found: {'Yes' if api_key else 'No'}")
         
+        # If no API key found for the requested model, check if user has any API keys
+        # and suggest they update it for the correct model
+        if not api_key and api_keys:
+            available_models = list(api_keys.keys())
+            logger.warning(f"No API key for {request.model_name}, but found keys for: {available_models}")
+        
         # Get or create conversation
         conv_id = request.conversation_id or str(uuid.uuid4())
         
@@ -1033,6 +1045,9 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
                 'type': request.file_data.type,
                 'content': request.file_data.content
             }
+        
+        # Pass available API keys info to handler for better error messages
+        llm_handler._user_api_keys = api_keys
         
         response_text, tokens = await llm_handler.get_response(
             request.message,
@@ -1109,6 +1124,13 @@ async def update_api_key(update_data: UpdateApiKey, username: str = Depends(veri
             raise HTTPException(status_code=404, detail="User not found")
         
         api_keys = user.api_keys or {}
+        
+        # If the API key already exists for another model and this is the same key,
+        # log a warning to help debug
+        if update_data.api_key in api_keys.values():
+            existing_model = [k for k, v in api_keys.items() if v == update_data.api_key][0]
+            logger.info(f"Same API key being used for {update_data.model_name} (was already set for {existing_model})")
+        
         api_keys[update_data.model_name] = update_data.api_key
         
         update_query = users_table.update().where(
@@ -1117,6 +1139,7 @@ async def update_api_key(update_data: UpdateApiKey, username: str = Depends(veri
         
         await database.execute(update_query)
         
+        logger.info(f"API key updated for user {username}, model {update_data.model_name}")
         return {"status": "success", "message": f"API key updated for {update_data.model_name}"}
         
     except Exception as e:
