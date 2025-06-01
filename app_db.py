@@ -124,12 +124,27 @@ class ImprovedSearch:
     
     def _extract_location(self, query: str) -> str:
         """Extract location from weather query"""
-        # Remove common words
+        # Original query for reference
+        original = query
+        
+        # Remove common words but preserve "in" followed by location
         query = query.lower()
+        
+        # Try to find location after "in"
+        if " in " in query:
+            parts = query.split(" in ", 1)
+            if len(parts) > 1:
+                location = parts[1].strip()
+                # Remove trailing punctuation
+                location = location.rstrip("?.,!").strip()
+                if location:
+                    return location
+        
+        # Fallback: remove weather-related words
         query = query.replace("what's the", "").replace("what is the", "")
         query = query.replace("how's the", "").replace("how is the", "")
         query = query.replace("weather", "").replace("temperature", "")
-        query = query.replace("forecast", "").replace("in", "").replace("at", "")
+        query = query.replace("forecast", "").replace("today", "")
         query = query.replace("?", "").strip()
         
         # Clean up extra spaces
@@ -146,9 +161,14 @@ class ImprovedSearch:
         query_lower = query.lower()
         
         # Special handling for NBA/sports queries
-        if any(term in query_lower for term in ['nba', 'basketball', 'game', 'playing', 'score']):
+        nba_keywords = ['nba', 'basketball', 'lakers', 'warriors', 'celtics', 'knicks', 'pacers', 
+                       'who is playing', 'who\'s playing', 'game today', 'games today', 'score', 
+                       'playoff', 'finals']
+        if any(term in query_lower for term in nba_keywords):
             nba_results = self._get_nba_scores()
             if nba_results:
+                # Return NBA scores immediately without additional web search
+                # to avoid confusion with generic search results
                 return nba_results
         
         try:
@@ -291,17 +311,34 @@ class ImprovedSearch:
                         status = competition.get('status', {})
                         game_status = status.get('type', {}).get('description', 'Scheduled')
                         
+                        # Get more detailed status
+                        period = status.get('period', 0)
+                        clock = status.get('displayClock', '')
+                        completed = status.get('type', {}).get('completed', False)
+                        
                         if game_status == 'Scheduled':
                             start_time = event.get('date', '')
                             try:
                                 from datetime import datetime
                                 game_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
                                 game_time_str = game_time.strftime('%I:%M %p ET')
-                                snippet = f"{away_name} @ {home_name} - {game_time_str}"
+                                snippet = f"{away_name} @ {home_name} - Starts at {game_time_str}"
                             except:
                                 snippet = f"{away_name} @ {home_name} - Scheduled"
+                        elif completed:
+                            snippet = f"{away_name} {away_score} - {home_name} {home_score} (Final)"
+                        elif game_status == 'In Progress':
+                            quarter = f"Q{period}" if period <= 4 else f"OT{period-4}"
+                            snippet = f"{away_name} {away_score} - {home_name} {home_score} ({quarter} {clock})"
                         else:
                             snippet = f"{away_name} {away_score} - {home_name} {home_score} ({game_status})"
+                        
+                        # Add series info if playoffs
+                        series = event.get('series', {})
+                        if series:
+                            series_summary = series.get('summary', '')
+                            if series_summary:
+                                snippet += f" | {series_summary}"
                         
                         results.append(f"Title:NBA Game\nSnippet:{snippet}\nLink:https://www.espn.com/nba/game/_/gameId/{event.get('id', '')}")
                 

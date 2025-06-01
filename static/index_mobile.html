@@ -109,90 +109,109 @@
         }
 
         .yappy-welcome {
-            width: 120px;
-            height: 120px;
+            width: 150px;
+            height: 150px;
             margin: 0 auto 2rem;
             position: relative;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         .yappy-body {
-            width: 80px;
-            height: 80px;
-            background: #FDB93F;
+            width: 100px;
+            height: 100px;
+            background: #FFD28C;
             border-radius: 50%;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
 
         .yappy-ear {
-            width: 30px;
-            height: 40px;
+            width: 40px;
+            height: 50px;
             background: #8B6B47;
-            border-radius: 50% 50% 0 0;
+            border-radius: 60% 60% 0 0;
             position: absolute;
-            top: 5px;
+            top: 10px;
         }
 
         .yappy-ear.left {
-            left: 15px;
-            transform: rotate(-20deg);
+            left: 20px;
+            transform: rotate(-25deg);
         }
 
         .yappy-ear.right {
-            right: 15px;
-            transform: rotate(20deg);
+            right: 20px;
+            transform: rotate(25deg);
         }
 
         .yappy-eyes {
             position: absolute;
-            top: 35px;
+            top: 40px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 20px;
+            gap: 25px;
         }
 
         .eye {
-            width: 8px;
-            height: 8px;
-            background: #000;
+            width: 10px;
+            height: 10px;
+            background: #1A1A1A;
             border-radius: 50%;
+            animation: blink 4s infinite;
+        }
+
+        @keyframes blink {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.1); }
         }
 
         .yappy-nose {
-            width: 10px;
-            height: 8px;
-            background: #000;
+            width: 12px;
+            height: 10px;
+            background: #1A1A1A;
             border-radius: 50%;
-            position: absolute;
-            top: 45px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .yappy-mouth {
-            width: 25px;
-            height: 15px;
-            border: 2px solid #000;
-            border-top: none;
-            border-radius: 0 0 25px 25px;
             position: absolute;
             top: 50px;
             left: 50%;
             transform: translateX(-50%);
         }
 
+        .yappy-mouth {
+            width: 30px;
+            height: 15px;
+            border: 3px solid #1A1A1A;
+            border-top: none;
+            border-radius: 0 0 30px 30px;
+            position: absolute;
+            top: 55px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
         .yappy-tongue {
-            width: 15px;
-            height: 20px;
+            width: 20px;
+            height: 25px;
             background: #FF6B6B;
             border-radius: 50%;
             position: absolute;
-            top: 2px;
+            top: 5px;
             left: 50%;
             transform: translateX(-50%);
+            animation: wag 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes wag {
+            from { transform: translateX(-50%) rotate(-5deg); }
+            to { transform: translateX(-50%) rotate(5deg); }
         }
 
         .welcome h2 {
@@ -664,8 +683,11 @@
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
             const [isLoading, setIsLoading] = useState(false);
+            const [uploadedFile, setUploadedFile] = useState(null);
+            const [fileContent, setFileContent] = useState(null);
             const messagesEndRef = useRef(null);
             const inputRef = useRef(null);
+            const fileInputRef = useRef(null);
 
             useEffect(() => {
                 const token = localStorage.getItem('yappy_token');
@@ -692,10 +714,31 @@
                 setMessages([]);
             };
 
-            const handleSend = async () => {
-                if (!input.trim() || isLoading) return;
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    setUploadedFile(file);
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setFileContent(e.target.result);
+                    };
+                    
+                    if (file.type.startsWith('image/')) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        reader.readAsText(file);
+                    }
+                }
+            };
 
-                const userMessage = input.trim();
+            const handleSend = async () => {
+                if (!input.trim() && !uploadedFile || isLoading) return;
+
+                const userMessage = uploadedFile 
+                    ? `${input.trim()}\n\n📎 Attached: ${uploadedFile.name}`
+                    : input.trim();
+                    
                 setInput('');
                 setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
                 setIsLoading(true);
@@ -709,16 +752,33 @@
                         localStorage.setItem('yappy_conversation_id', conversationId);
                     }
 
-                    const response = await axios.post('/api/chat', {
-                        message: userMessage,
+                    const payload = {
+                        message: input.trim() || 'Please analyze this file',
                         model_name: model,
                         conversation_id: conversationId
-                    });
+                    };
+                    
+                    if (uploadedFile && fileContent) {
+                        payload.file_data = {
+                            name: uploadedFile.name,
+                            type: uploadedFile.type,
+                            content: fileContent
+                        };
+                    }
+
+                    const response = await axios.post('/api/chat', payload);
 
                     setMessages(prev => [...prev, {
                         type: 'ai',
                         content: response.data.response
                     }]);
+                    
+                    // Clear file after sending
+                    setUploadedFile(null);
+                    setFileContent(null);
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                    }
                 } catch (error) {
                     setMessages(prev => [...prev, {
                         type: 'ai',
@@ -802,12 +862,25 @@
                     <div className="input-area">
                         <div className="input-container">
                             <div className="input-wrapper">
-                                <button className="attach-btn">📎</button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    onChange={handleFileUpload}
+                                    style={{ display: 'none' }}
+                                    accept=".csv,.xlsx,.xls,.pdf,.txt,.json,image/*"
+                                />
+                                <button 
+                                    className="attach-btn"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    title={uploadedFile ? `File: ${uploadedFile.name}` : 'Attach file'}
+                                >
+                                    {uploadedFile ? '📄' : '📎'}
+                                </button>
                                 <input
                                     ref={inputRef}
                                     type="text"
                                     className="message-input"
-                                    placeholder="Message Yappy..."
+                                    placeholder={uploadedFile ? `Ask about ${uploadedFile.name}...` : "Message Yappy..."}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={handleKeyPress}
@@ -817,7 +890,7 @@
                             <button 
                                 className="send-btn"
                                 onClick={handleSend}
-                                disabled={!input.trim() || isLoading}
+                                disabled={(!input.trim() && !uploadedFile) || isLoading}
                             >
                                 ✨
                             </button>
