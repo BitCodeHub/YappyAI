@@ -918,7 +918,12 @@ except ImportError:
 @app.get("/")
 async def root(request: Request):
     """Serve unified responsive chat interface"""
-    # First try to serve the responsive version
+    # First try to serve the claude UI version
+    claude_ui_path = os.path.join(static_dir, "yappy_claude_ui.html")
+    if os.path.exists(claude_ui_path):
+        return FileResponse(claude_ui_path)
+    
+    # Fallback to responsive version
     responsive_path = os.path.join(static_dir, "yappy_responsive.html")
     if os.path.exists(responsive_path):
         return FileResponse(responsive_path)

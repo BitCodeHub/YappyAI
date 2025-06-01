@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yappy - AI Agent Assistant</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f0f0f',
+                        'dark-secondary': '#1a1a1a',
+                        'dark-tertiary': '#262626',
+                        'orange-accent': '#ff6b35',
+                        'text-primary': '#ffffff',
+                        'text-secondary': '#a1a1a1',
+                    },
+                    fontFamily: {
+                        'serif': ['Georgia', 'serif'],
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom styles for smooth transitions */
+        * {
+            transition: all 0.2s ease;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Dropdown animation */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dropdown-enter {
+            animation: slideDown 0.2s ease-out;
+        }
+        
+        /* Starburst decoration */
+        .starburst {
+            position: relative;
+            display: inline-block;
+            color: #ff6b35;
+            font-size: 1.5rem;
+        }
+        
+        .starburst::before {
+            content: '✦';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+        
+        /* Loading dots animation */
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .loading-dot {
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+        
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.16s;
+        }
+        
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.32s;
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-text-primary min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Main App Component
+        function App() {
+            // Mock user - in production this would come from auth
+            const user = { name: "Jimmy" };
+            const username = user?.name || "there";
+            
+            // State management
+            const [inputValue, setInputValue] = useState('');
+            const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
+            const [messages, setMessages] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [activeDropdown, setActiveDropdown] = useState(null);
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [authToken, setAuthToken] = useState(null);
+            
+            const messagesEndRef = useRef(null);
+            
+            // Check authentication on mount
+            useEffect(() => {
+                const token = localStorage.getItem('yappy_token');
+                if (token) {
+                    setIsAuthenticated(true);
+                    setAuthToken(token);
+                }
+            }, []);
+            
+            // Auto scroll to bottom
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+            
+            // Get greeting based on time
+            const getGreeting = () => {
+                const hour = new Date().getHours();
+                if (hour < 12) return "Good morning";
+                if (hour < 18) return "Good afternoon";
+                return "Good evening";
+            };
+            
+            // Agent mapping
+            const agentMap = {
+                'Write': 'WritingAgent',
+                'Learn': 'ResearchAgent',
+                'Code': 'CodeAgent',
+                'Anything': 'GeneralistAgent'
+            };
+            
+            // Dropdown options
+            const dropdownOptions = {
+                'Write': [
+                    'Blog Post about AI',
+                    'Creative Story Starter',
+                    'Product Description for App'
+                ],
+                'Learn': [
+                    'Explain Quantum Computing',
+                    'Learn Basic Python',
+                    'What is Inflation?'
+                ],
+                'Code': [
+                    'Create a To-Do App in React',
+                    'Debug a Python Script',
+                    'Write SQL for a Join Query'
+                ],
+                'Anything': [
+                    'Give me life advice',
+                    'Plan a healthy meal',
+                    'Recommend a movie'
+                ]
+            };
+            
+            // Model options
+            const modelOptions = [
+                'Claude 3.5 Sonnet',
+                'GPT-4 Turbo',
+                'Gemini 1.5 Pro',
+                'Llama 3.1'
+            ];
+            
+            // Handle dropdown selection
+            const handleDropdownSelect = async (category, option) => {
+                setActiveDropdown(null);
+                setInputValue(option);
+                
+                // Simulate sending message
+                await handleSend(option, agentMap[category]);
+            };
+            
+            // Handle send message
+            const handleSend = async (messageText = inputValue, agentType = null) => {
+                if (!messageText.trim()) return;
+                
+                // Add user message
+                const userMessage = {
+                    id: Date.now(),
+                    type: 'user',
+                    content: messageText,
+                    timestamp: new Date()
+                };
+                
+                setMessages(prev => [...prev, userMessage]);
+                setInputValue('');
+                setIsLoading(true);
+                
+                try {
+                    // Determine which agent to use
+                    let agent = agentType;
+                    if (!agent) {
+                        // Simple routing based on keywords
+                        const lowerMessage = messageText.toLowerCase();
+                        if (lowerMessage.includes('write') || lowerMessage.includes('blog') || lowerMessage.includes('story')) {
+                            agent = 'WritingAgent';
+                        } else if (lowerMessage.includes('learn') || lowerMessage.includes('explain') || lowerMessage.includes('what is')) {
+                            agent = 'ResearchAgent';
+                        } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('sql')) {
+                            agent = 'CodeAgent';
+                        } else {
+                            agent = 'GeneralistAgent';
+                        }
+                    }
+                    
+                    // If authenticated, make real API call
+                    if (isAuthenticated && authToken) {
+                        const response = await axios.post('/api/chat', {
+                            message: messageText,
+                            model_name: selectedModel.toLowerCase().includes('claude') ? 'anthropic' : 
+                                       selectedModel.toLowerCase().includes('gpt') ? 'openai' :
+                                       selectedModel.toLowerCase().includes('gemini') ? 'google' : 'openai'
+                        }, {
+                            headers: { Authorization: `Bearer ${authToken}` }
+                        });
+                        
+                        const aiMessage = {
+                            id: Date.now() + 1,
+                            type: 'ai',
+                            agent: response.data.agent_used || agent,
+                            content: response.data.response,
+                            timestamp: new Date()
+                        };
+                        
+                        setMessages(prev => [...prev, aiMessage]);
+                    } else {
+                        // Simulate response
+                        await simulateAgentResponse(agent, messageText);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    const errorMessage = {
+                        id: Date.now() + 1,
+                        type: 'ai',
+                        agent: 'System',
+                        content: 'Sorry, I encountered an error. Please make sure you are logged in and have configured your API keys.',
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, errorMessage]);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            // Simulate agent response
+            const simulateAgentResponse = async (agent, message) => {
+                // Simulate thinking delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Mock responses based on agent type
+                const responses = {
+                    'WritingAgent': `I'll help you write that. Here's a creative start:\n\n"In the age of artificial intelligence, we stand at the crossroads of innovation and imagination. Every line of code written today shapes tomorrow's reality..."`,
+                    'ResearchAgent': `Let me explain that for you:\n\nThe concept you're asking about is fascinating. It involves understanding the fundamental principles that govern how systems interact and evolve over time. Here are the key points to understand...`,
+                    'CodeAgent': `Here's a solution for your coding request:\n\n\`\`\`javascript\nfunction TodoApp() {\n  const [todos, setTodos] = useState([]);\n  \n  const addTodo = (text) => {\n    setTodos([...todos, { id: Date.now(), text, done: false }]);\n  };\n  \n  return (\n    <div>\n      {/* Todo implementation */}\n    </div>\n  );\n}\n\`\`\``,
+                    'GeneralistAgent': `I'd be happy to help with that!\n\nBased on what you're asking, here's my thoughtful response: Life is a journey of continuous learning and growth. Whether you're planning a meal, seeking advice, or exploring new ideas, the key is to approach each moment with curiosity and openness.`
+                };
+                
+                const aiMessage = {
+                    id: Date.now() + 1,
+                    type: 'ai',
+                    agent: agent,
+                    content: responses[agent] || 'I understand your request. Let me help you with that...',
+                    timestamp: new Date()
+                };
+                
+                setMessages(prev => [...prev, aiMessage]);
+            };
+            
+            // Handle key press
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+            
+            // Authentication Component
+            if (!isAuthenticated) {
+                return <AuthComponent onLogin={(token) => {
+                    setIsAuthenticated(true);
+                    setAuthToken(token);
+                    localStorage.setItem('yappy_token', token);
+                }} />;
+            }
+            
+            return (
+                <div className="min-h-screen bg-dark-bg flex flex-col">
+                    {/* Main Container */}
+                    <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col">
+                        
+                        {/* Greeting Section */}
+                        <div className="text-center mb-12 pt-8">
+                            <div className="inline-block">
+                                <span className="starburst mb-4 block">✦</span>
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-serif text-text-primary">
+                                {getGreeting()}, {username}
+                            </h1>
+                        </div>
+                        
+                        {/* Messages Area */}
+                        <div className="flex-1 overflow-y-auto mb-6 space-y-4">
+                            {messages.map(message => (
+                                <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-3xl px-4 py-3 rounded-lg ${
+                                        message.type === 'user' 
+                                            ? 'bg-dark-tertiary text-text-primary' 
+                                            : 'bg-dark-secondary text-text-primary'
+                                    }`}>
+                                        {message.type === 'ai' && (
+                                            <div className="text-orange-accent text-sm font-medium mb-1">
+                                                [{message.agent}]
+                                            </div>
+                                        )}
+                                        <div className="whitespace-pre-wrap">{message.content}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {/* Loading indicator */}
+                            {isLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-dark-secondary px-4 py-3 rounded-lg">
+                                        <div className="flex space-x-2">
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div ref={messagesEndRef} />
+                        </div>
+                        
+                        {/* Input Section */}
+                        <div className="bg-dark-secondary rounded-xl shadow-lg p-4">
+                            <div className="flex items-center space-x-3">
+                                {/* Left Icons */}
+                                <div className="flex items-center space-x-2">
+                                    <button className="text-text-secondary hover:text-text-primary p-2">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </button>
+                                    <button className="text-text-secondary hover:text-text-primary p-2">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                        </svg>
+                                    </button>
+                                    <button className="text-text-secondary hover:text-text-primary p-2">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                {/* Input Field */}
+                                <input
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="How can I help you today?"
+                                    className="flex-1 bg-transparent text-text-primary placeholder-text-secondary outline-none"
+                                    disabled={isLoading}
+                                />
+                                
+                                {/* Model Selector */}
+                                <div className="relative">
+                                    <select 
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                        className="bg-dark-tertiary text-text-primary text-sm rounded-lg px-3 py-2 outline-none cursor-pointer"
+                                    >
+                                        {modelOptions.map(model => (
+                                            <option key={model} value={model}>{model}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                {/* Send Button */}
+                                <button
+                                    onClick={() => handleSend()}
+                                    disabled={isLoading || !inputValue.trim()}
+                                    className="bg-orange-accent hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full p-2 transition-all"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Action Button Row */}
+                        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.keys(dropdownOptions).map(category => (
+                                <div key={category} className="relative">
+                                    <button
+                                        onClick={() => setActiveDropdown(activeDropdown === category ? null : category)}
+                                        className="w-full bg-dark-secondary hover:bg-dark-tertiary text-text-primary py-3 px-4 rounded-lg transition-all"
+                                    >
+                                        {category}
+                                    </button>
+                                    
+                                    {/* Dropdown Menu */}
+                                    {activeDropdown === category && (
+                                        <div className="absolute z-10 w-full mt-2 bg-dark-tertiary rounded-lg shadow-xl overflow-hidden dropdown-enter">
+                                            {dropdownOptions[category].map(option => (
+                                                <button
+                                                    key={option}
+                                                    onClick={() => handleDropdownSelect(category, option)}
+                                                    className="w-full text-left px-4 py-3 text-text-primary hover:bg-dark-secondary transition-colors text-sm"
+                                                >
+                                                    {option}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {/* Logout Button */}
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem('yappy_token');
+                                    setIsAuthenticated(false);
+                                    setAuthToken(null);
+                                    setMessages([]);
+                                }}
+                                className="text-text-secondary hover:text-text-primary text-sm"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Authentication Component
+        function AuthComponent({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [username, setUsername] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setIsLoading(true);
+                
+                try {
+                    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+                    const payload = isLogin 
+                        ? { username, password }
+                        : { username, email, password };
+                    
+                    const response = await axios.post(endpoint, payload);
+                    
+                    if (response.data.access_token) {
+                        onLogin(response.data.access_token);
+                    }
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'An error occurred');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">
+                    <div className="max-w-md w-full">
+                        <div className="text-center mb-8">
+                            <span className="starburst mb-4 block">✦</span>
+                            <h1 className="text-3xl font-serif text-text-primary mb-2">
+                                Welcome to Yappy
+                            </h1>
+                            <p className="text-text-secondary">
+                                {isLogin ? 'Sign in to continue' : 'Create your account'}
+                            </p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="bg-dark-secondary rounded-xl p-6 space-y-4">
+                            {error && (
+                                <div className="bg-red-900/20 border border-red-700 text-red-400 px-4 py-2 rounded-lg text-sm">
+                                    {error}
+                                </div>
+                            )}
+                            
+                            <input
+                                type="text"
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                required
+                            />
+                            
+                            {!isLogin && (
+                                <input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                    required
+                                />
+                            )}
+                            
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                required
+                            />
+                            
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-orange-accent hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-lg font-medium transition-all"
+                            >
+                                {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+                            </button>
+                            
+                            <div className="text-center text-text-secondary text-sm">
+                                {isLogin ? (
+                                    <>
+                                        Don't have an account?{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsLogin(false);
+                                                setError('');
+                                            }}
+                                            className="text-orange-accent hover:text-orange-600"
+                                        >
+                                            Sign up
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        Already have an account?{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsLogin(true);
+                                                setError('');
+                                            }}
+                                            className="text-orange-accent hover:text-orange-600"
+                                        >
+                                            Sign in
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                            
+                            {isLogin && (
+                                <div className="mt-4 p-3 bg-dark-tertiary rounded-lg text-xs text-text-secondary">
+                                    <strong>Demo Account:</strong><br />
+                                    Username: admin<br />
+                                    Password: yappy123
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
