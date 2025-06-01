@@ -24,14 +24,18 @@ const AgentDashboard = ({ isOpen, onClose }) => {
 
     const loadAgentData = async () => {
         try {
+            // Get auth token from localStorage
+            const token = localStorage.getItem('yappy_token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
             // Load agent capabilities
-            const capabilitiesRes = await axios.get('/api/agents');
+            const capabilitiesRes = await axios.get('/api/agents', { headers });
             if (capabilitiesRes.data.agents) {
                 setAgents(capabilitiesRes.data.agents);
             }
 
             // Load agent status
-            const statusRes = await axios.get('/api/agents/status');
+            const statusRes = await axios.get('/api/agents/status', { headers });
             setAgentStatus(statusRes.data);
             setActiveTasks(statusRes.data.task_details || []);
             
@@ -185,6 +189,41 @@ const AgentDashboard = ({ isOpen, onClose }) => {
 
 // Styles for the Agent Dashboard
 const dashboardStyles = `
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+    }
+
+    .modal-content {
+        background: var(--bg-dark, #0a0a0f);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        padding: 2rem;
+        position: relative;
+        animation: modalFadeIn 0.3s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
     .agent-dashboard {
         max-width: 1000px;
         width: 90%;
@@ -212,7 +251,7 @@ const dashboardStyles = `
     .close-button {
         background: none;
         border: none;
-        color: var(--text-primary);
+        color: var(--text-primary, #ffffff);
         font-size: 1.5rem;
         cursor: pointer;
         transition: transform 0.2s;
@@ -263,13 +302,13 @@ const dashboardStyles = `
 
     .agent-card h4 {
         margin: 0.5rem 0;
-        color: var(--text-primary);
+        color: var(--text-primary, #ffffff);
         font-size: 1rem;
     }
 
     .agent-description {
         font-size: 0.8rem;
-        color: var(--text-secondary);
+        color: var(--text-secondary, rgba(255, 255, 255, 0.7));
         margin: 0.5rem 0;
     }
 
@@ -299,7 +338,7 @@ const dashboardStyles = `
 
     .capability-tag {
         background: rgba(102, 126, 234, 0.2);
-        color: var(--color-primary);
+        color: var(--color-primary, #667eea);
         padding: 0.25rem 0.5rem;
         border-radius: 12px;
         font-size: 0.7rem;
@@ -436,10 +475,45 @@ const dashboardStyles = `
 
     .no-tasks {
         text-align: center;
-        color: var(--text-muted);
+        color: var(--text-muted, rgba(255, 255, 255, 0.5));
         padding: 2rem;
         background: rgba(255, 255, 255, 0.03);
         border-radius: 8px;
+    }
+
+    /* Add section styles */
+    .agents-section h3,
+    .tasks-section h3,
+    .agent-details h3,
+    .statistics-section h3 {
+        color: var(--text-primary, #ffffff);
+        margin-bottom: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .tasks-section,
+    .agent-details,
+    .statistics-section {
+        margin-top: 2rem;
+    }
+
+    /* Scrollbar styles */
+    .agent-dashboard::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .agent-dashboard::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }
+
+    .agent-dashboard::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+    }
+
+    .agent-dashboard::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
     }
 `;
 

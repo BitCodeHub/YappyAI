@@ -10,24 +10,41 @@ class EnhancedLLMHandler:
     
     def __init__(self):
         self.agents = {
-            "casual": "Casual conversation agent",
-            "code": "Code generation and debugging",
-            "browser": "Web search and browsing",
-            "research": "Research and analysis",
-            "data": "Data processing",
-            "automation": "Task automation"
+            "casual": {
+                "name": "Casual Agent",
+                "description": "Handles general conversation and queries",
+                "capabilities": ["General chat", "Q&A", "Explanations", "Recommendations"]
+            },
+            "code": {
+                "name": "Code Agent",
+                "description": "Code generation, debugging, and programming help",
+                "capabilities": ["Code generation", "Debugging", "Code review", "Refactoring"]
+            },
+            "browser": {
+                "name": "Browser Agent", 
+                "description": "Web search and information retrieval",
+                "capabilities": ["Web search", "Information gathering", "Real-time data", "News updates"]
+            },
+            "research": {
+                "name": "Research Agent",
+                "description": "Deep research and comprehensive analysis",
+                "capabilities": ["In-depth research", "Source verification", "Report generation", "Data synthesis"]
+            },
+            "data": {
+                "name": "Data Agent",
+                "description": "Data processing and analysis",
+                "capabilities": ["Data analysis", "Visualization", "CSV/Excel processing", "Statistical analysis"]
+            },
+            "automation": {
+                "name": "Automation Agent",
+                "description": "Task automation and workflow management",
+                "capabilities": ["Workflow creation", "Task scheduling", "Process automation", "Batch operations"]
+            }
         }
         
     def get_capabilities(self) -> Dict[str, Any]:
         """Get available agents and their capabilities"""
-        return {
-            "agents": self.agents,
-            "features": {
-                "orchestration": True,
-                "multi_agent": True,
-                "autonomous_research": True
-            }
-        }
+        return self.agents
     
     def get_agent_status(self) -> Dict[str, Any]:
         """Get current agent status"""
