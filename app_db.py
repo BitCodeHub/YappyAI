@@ -545,8 +545,8 @@ class LLMHandler:
             if hasattr(self, '_user_api_keys'):
                 available_models = list(self._user_api_keys.keys()) if self._user_api_keys else []
                 if available_models:
-                    return f"Woof! 🐕 I need an API key for {model_name} to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nPlease either:\n1. Switch to one of those models, or\n2. Add your {model_name} API key in your profile settings.", 0
-            return f"Woof! 🐕 I need an API key for {model_name} to analyze images! Please add one in your profile settings.", 0
+                    return f"Woof! 🐕 I need an API key to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key.", 0
+            return f"Woof! 🐕 I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started. *wags tail*", 0
         
         try:
             # For OpenAI, use GPT-4 Vision
@@ -685,7 +685,11 @@ Tell me what's in the image and I'll help you with any questions about it!
         """Call the appropriate LLM"""
         
         if not api_key:
-            return "Woof! 🐕 I need an API key to help you! Please add one in your profile settings."
+            # Check if user has any API keys configured
+            if hasattr(self, '_user_api_keys') and self._user_api_keys:
+                available_models = list(self._user_api_keys.keys())
+                return f"Woof! 🐕 I need an API key to help you!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key."
+            return "Woof! 🐕 I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started. *wags tail*"
         
         try:
             if model_name == "openai" and openai:
@@ -1012,6 +1016,16 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         if not api_key and api_keys:
             available_models = list(api_keys.keys())
             logger.warning(f"No API key for {request.model_name}, but found keys for: {available_models}")
+            
+            # TEMPORARY WORKAROUND: If requesting OpenAI but have any API key, use it
+            # This helps users who accidentally saved their OpenAI key under wrong model
+            if request.model_name == "openai" and api_keys:
+                # Try to find an OpenAI-looking key (starts with sk-)
+                for model, key in api_keys.items():
+                    if key.startswith("sk-"):
+                        logger.info(f"Using OpenAI API key from {model} model for OpenAI request")
+                        api_key = key
+                        break
         
         # Get or create conversation
         conv_id = request.conversation_id or str(uuid.uuid4())
@@ -1145,6 +1159,89 @@ async def update_api_key(update_data: UpdateApiKey, username: str = Depends(veri
     except Exception as e:
         logger.error(f"API key update error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update API key")
+
+@app.post("/api/user/copy-api-key/{from_model}/{to_model}")
+async def copy_api_key(from_model: str, to_model: str, username: str = Depends(verify_token)):
+    """Copy API key from one model to another"""
+    try:
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        api_keys = user.api_keys or {}
+        
+        if from_model not in api_keys:
+            raise HTTPException(status_code=404, detail=f"No API key found for {from_model}")
+        
+        # Copy the API key
+        api_keys[to_model] = api_keys[from_model]
+        
+        update_query = users_table.update().where(
+            users_table.c.username == username
+        ).values(api_keys=api_keys)
+        
+        await database.execute(update_query)
+        
+        logger.info(f"Copied API key from {from_model} to {to_model} for user {username}")
+        return {"status": "success", "message": f"API key copied from {from_model} to {to_model}"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Copy API key error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to copy API key")
+
+@app.get("/api/user/api-keys")
+async def get_user_api_keys(username: str = Depends(verify_token)):
+    """Get list of models with API keys configured"""
+    try:
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            return {"models": []}
+        
+        api_keys = user.api_keys or {}
+        return {"models": list(api_keys.keys())}
+        
+    except Exception as e:
+        logger.error(f"Get API keys error: {e}")
+        return {"models": []}
+
+@app.delete("/api/user/api-key/{model_name}")
+async def delete_api_key(model_name: str, username: str = Depends(verify_token)):
+    """Delete API key for a specific model"""
+    try:
+        query = users_table.select().where(users_table.c.username == username)
+        user = await database.fetch_one(query)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        api_keys = user.api_keys or {}
+        
+        if model_name not in api_keys:
+            raise HTTPException(status_code=404, detail=f"No API key found for {model_name}")
+        
+        # Remove the API key
+        del api_keys[model_name]
+        
+        update_query = users_table.update().where(
+            users_table.c.username == username
+        ).values(api_keys=api_keys)
+        
+        await database.execute(update_query)
+        
+        logger.info(f"Deleted API key for {model_name} for user {username}")
+        return {"status": "success", "message": f"API key for {model_name} removed"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete API key error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete API key")
 
 @app.get("/api/conversations")
 async def get_conversations(username: str = Depends(verify_token)):
