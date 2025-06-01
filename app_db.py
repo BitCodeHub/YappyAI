@@ -903,9 +903,16 @@ try:
     enhanced_handler = EnhancedLLMHandler()
     MULTI_AGENT_ENABLED = True
 except ImportError:
-    enhanced_handler = None
-    MULTI_AGENT_ENABLED = False
-    logger.warning("Enhanced multi-agent system not available")
+    # Try minimal fallback handler
+    try:
+        from sources.llm_handler_minimal import EnhancedLLMHandler
+        enhanced_handler = EnhancedLLMHandler()
+        MULTI_AGENT_ENABLED = True
+        logger.info("Using minimal multi-agent handler")
+    except ImportError:
+        enhanced_handler = None
+        MULTI_AGENT_ENABLED = False
+        logger.warning("Enhanced multi-agent system not available")
 
 # API Endpoints
 @app.get("/")
