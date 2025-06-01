@@ -30,6 +30,15 @@ from bs4 import BeautifulSoup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import optional libraries
+try:
+    from PIL import Image
+    import io
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    logger.warning("PIL not available - image processing features will be limited")
+
 # Import all LLM libraries
 try:
     import openai
@@ -496,8 +505,20 @@ class LLMHandler:
         }
         
     async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
-                          conversation_history: List[Dict] = None) -> Tuple[str, int]:
+                          conversation_history: List[Dict] = None, file_data: Optional[Dict] = None) -> Tuple[str, int]:
         """Get response using appropriate agent"""
+        
+        # If there's file data, process it appropriately
+        if file_data:
+            # Add file context to prompt
+            file_info = f"\n\n[User uploaded file: {file_data['name']} (type: {file_data['type']})]"
+            
+            # For images, we need to use a vision-capable model
+            if file_data['type'].startswith('image/'):
+                return await self._handle_image(prompt, file_data, model_name, api_key, conversation_history)
+            else:
+                # For text files, include content in the prompt
+                prompt = f"{prompt}{file_info}\n\nFile content:\n{file_data['content'][:5000]}"  # Limit content length
         
         # Route to appropriate agent
         agent_type, needs_search = self.router.route_query(prompt)
@@ -510,6 +531,106 @@ class LLMHandler:
         response = await agent.process(prompt, self, api_key, model_name, conversation_history)
         
         return response, 0  # Token count would be calculated by LLM
+    
+    async def _handle_image(self, prompt: str, file_data: Dict, model_name: str, 
+                           api_key: Optional[str], conversation_history: List[Dict] = None) -> Tuple[str, int]:
+        """Handle image analysis using vision models"""
+        
+        if not api_key:
+            return "Woof! 🐕 I need an API key to analyze images! Please add one in your profile settings.", 0
+        
+        try:
+            # For OpenAI, use GPT-4 Vision
+            if model_name == "openai" and openai:
+                client = openai.OpenAI(api_key=api_key)
+                
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "You are Yappy 🐕, a friendly AI assistant that can analyze images! Be enthusiastic and helpful."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": file_data['content']  # Base64 image data
+                                }
+                            }
+                        ]
+                    }
+                ]
+                
+                response = client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=messages,
+                    max_tokens=1000
+                )
+                
+                return response.choices[0].message.content, 0
+            
+            # For Anthropic Claude
+            elif model_name == "anthropic" and anthropic:
+                client = anthropic.Anthropic(api_key=api_key)
+                
+                # Extract base64 data from data URL
+                import base64
+                base64_data = file_data['content'].split(',')[1] if ',' in file_data['content'] else file_data['content']
+                
+                response = client.messages.create(
+                    model="claude-3-opus-20240229",
+                    max_tokens=1000,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"You are Yappy 🐕, a friendly AI assistant! {prompt}"
+                                },
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": file_data['type'],
+                                        "data": base64_data
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                )
+                
+                return response.content[0].text, 0
+            
+            # For Google Gemini
+            elif model_name == "google" and genai and PIL_AVAILABLE:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-pro-vision')
+                
+                # Convert base64 to PIL Image
+                import base64
+                
+                base64_data = file_data['content'].split(',')[1] if ',' in file_data['content'] else file_data['content']
+                image_data = base64.b64decode(base64_data)
+                image = Image.open(io.BytesIO(image_data))
+                
+                response = model.generate_content([
+                    f"You are Yappy 🐕, a friendly AI assistant! {prompt}",
+                    image
+                ])
+                
+                return response.text, 0
+            
+            else:
+                # For models without vision capability
+                return f"Woof! 🐕 I see you've uploaded an image ({file_data['name']}), but I need a vision-capable model to analyze it!\n\nTo analyze images, please use one of these models:\n• OpenAI (with GPT-4 Vision)\n• Anthropic (with Claude 3)\n• Google (with Gemini Pro Vision)\n\nAlternatively, you can describe the image to me and I'll be happy to help based on your description! *wags tail*", 0
+            
+        except Exception as e:
+            logger.error(f"Image analysis error: {e}")
+            return f"Woof! 🐕 I encountered an error analyzing the image: {str(e)}", 0
     
     async def _call_llm(self, system_prompt: str, user_prompt: str, model_name: str, 
                         api_key: Optional[str], conversation_history: List[Dict] = None) -> str:
@@ -659,11 +780,17 @@ class UpdateApiKey(BaseModel):
     model_name: str
     api_key: str
 
+class FileData(BaseModel):
+    name: str
+    type: str
+    content: str
+
 class ChatRequest(BaseModel):
     message: str
     model_name: Optional[str] = "openai"
     conversation_id: Optional[str] = None
     stream: Optional[bool] = False
+    file_data: Optional[FileData] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -852,11 +979,20 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             conversation_messages = conversation.messages or []
         
         # Get response from appropriate agent
+        file_data = None
+        if request.file_data:
+            file_data = {
+                'name': request.file_data.name,
+                'type': request.file_data.type,
+                'content': request.file_data.content
+            }
+        
         response_text, tokens = await llm_handler.get_response(
             request.message,
             request.model_name,
             api_key,
-            conversation_messages
+            conversation_messages,
+            file_data
         )
         
         # Determine which agent was used
@@ -873,6 +1009,13 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
             "tokens": tokens,
             "agent_used": agent_type
         }
+        
+        # Add file info if present
+        if request.file_data:
+            message_data["file_attachment"] = {
+                "name": request.file_data.name,
+                "type": request.file_data.type
+            }
         
         # Update conversation
         conversation_messages.append(message_data)
