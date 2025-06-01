@@ -125,11 +125,8 @@
         
         // Main App Component
         function App() {
-            // Mock user - in production this would come from auth
-            const user = { name: "Jimmy" };
-            const username = user?.name || "there";
-            
             // State management
+            const [username, setUsername] = useState('there'); // Default fallback
             const [inputValue, setInputValue] = useState('');
             const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
             const [messages, setMessages] = useState([]);
@@ -143,9 +140,11 @@
             // Check authentication on mount
             useEffect(() => {
                 const token = localStorage.getItem('yappy_token');
-                if (token) {
+                const savedUsername = localStorage.getItem('yappy_username');
+                if (token && savedUsername) {
                     setIsAuthenticated(true);
                     setAuthToken(token);
+                    setUsername(savedUsername);
                 }
             }, []);
             
@@ -317,10 +316,12 @@
             
             // Authentication Component
             if (!isAuthenticated) {
-                return <AuthComponent onLogin={(token) => {
+                return <AuthComponent onLogin={(token, username) => {
                     setIsAuthenticated(true);
                     setAuthToken(token);
+                    setUsername(username);
                     localStorage.setItem('yappy_token', token);
+                    localStorage.setItem('yappy_username', username);
                 }} />;
             }
             
@@ -337,6 +338,11 @@
                             <h1 className="text-4xl md:text-5xl font-serif text-text-primary">
                                 {getGreeting()}, {username}
                             </h1>
+                            {username !== 'there' && (
+                                <p className="text-text-secondary mt-2">
+                                    Welcome back to your AI assistant
+                                </p>
+                            )}
                         </div>
                         
                         {/* Messages Area */}
@@ -467,8 +473,10 @@
                             <button
                                 onClick={() => {
                                     localStorage.removeItem('yappy_token');
+                                    localStorage.removeItem('yappy_username');
                                     setIsAuthenticated(false);
                                     setAuthToken(null);
+                                    setUsername('there');
                                     setMessages([]);
                                 }}
                                 className="text-text-secondary hover:text-text-primary text-sm"
@@ -496,7 +504,7 @@
                 setIsLoading(true);
                 
                 try {
-                    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+                    const endpoint = isLogin ? '/auth/login' : '/auth/register';
                     const payload = isLogin 
                         ? { username, password }
                         : { username, email, password };
@@ -504,7 +512,8 @@
                     const response = await axios.post(endpoint, payload);
                     
                     if (response.data.access_token) {
-                        onLogin(response.data.access_token);
+                        // Pass both token and username to parent component
+                        onLogin(response.data.access_token, response.data.username || username);
                     }
                 } catch (err) {
                     setError(err.response?.data?.detail || 'An error occurred');
