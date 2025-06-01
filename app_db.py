@@ -625,8 +625,37 @@ class LLMHandler:
                 return response.text, 0
             
             else:
-                # For models without vision capability
-                return f"Woof! 🐕 I see you've uploaded an image ({file_data['name']}), but I need a vision-capable model to analyze it!\n\nTo analyze images, please use one of these models:\n• OpenAI (with GPT-4 Vision)\n• Anthropic (with Claude 3)\n• Google (with Gemini Pro Vision)\n\nAlternatively, you can describe the image to me and I'll be happy to help based on your description! *wags tail*", 0
+                # For models without vision capability, provide helpful alternatives
+                response = f"""Woof! 🐕 I see you've uploaded an image ({file_data['name']}), but {model_name} doesn't have built-in vision capabilities. 
+
+Here's how you can get your image analyzed:
+
+**Option 1: Use a Vision-Capable Model**
+• Switch to OpenAI (with GPT-4 Vision)
+• Switch to Anthropic (with Claude 3) 
+• Switch to Google (with Gemini Pro Vision)
+
+**Option 2: Use Free Online Tools**
+Here are some popular AI image analysis websites:
+
+• **AI Describe Image | ImagePrompt.org**
+  - Provides detailed descriptions and object identification
+  - Can answer specific questions about your image
+
+• **Image Describer - YesChat**
+  - Offers descriptions in text and table formats
+  - Advanced image analysis features
+
+• **Image Explainer - AIChatOnline.org**
+  - Uses advanced image recognition
+  - Provides easy-to-understand descriptions
+
+**Option 3: Describe It to Me**
+Tell me what's in the image and I'll help you with any questions about it!
+
+*wags tail hopefully* 🐕 Which option would you like to try?"""
+                
+                return response, 0
             
         except Exception as e:
             logger.error(f"Image analysis error: {e}")
