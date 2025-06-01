@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Yappy - AI Assistant</title>
+    
+    <!-- React and dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #7C3AED;
+            --primary-hover: #6D28D9;
+            --secondary: #F3F4F6;
+            --background: #FFFFFF;
+            --text-primary: #1F2937;
+            --text-secondary: #6B7280;
+            --border: #E5E7EB;
+            --message-user: #7C3AED;
+            --message-ai: #F3F4F6;
+            --input-bg: #F9FAFB;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            padding-top: calc(1rem + var(--safe-top));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:active {
+            background: var(--secondary);
+        }
+
+        /* Messages */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            padding-bottom: 100px;
+            background: #FAFAFA;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .welcome {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .yappy-welcome {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            position: relative;
+        }
+
+        .yappy-body {
+            width: 80px;
+            height: 80px;
+            background: #FDB93F;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .yappy-ear {
+            width: 30px;
+            height: 40px;
+            background: #8B6B47;
+            border-radius: 50% 50% 0 0;
+            position: absolute;
+            top: 5px;
+        }
+
+        .yappy-ear.left {
+            left: 15px;
+            transform: rotate(-20deg);
+        }
+
+        .yappy-ear.right {
+            right: 15px;
+            transform: rotate(20deg);
+        }
+
+        .yappy-eyes {
+            position: absolute;
+            top: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+
+        .eye {
+            width: 8px;
+            height: 8px;
+            background: #000;
+            border-radius: 50%;
+        }
+
+        .yappy-nose {
+            width: 10px;
+            height: 8px;
+            background: #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .yappy-mouth {
+            width: 25px;
+            height: 15px;
+            border: 2px solid #000;
+            border-top: none;
+            border-radius: 0 0 25px 25px;
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .yappy-tongue {
+            width: 15px;
+            height: 20px;
+            background: #FF6B6B;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .welcome h2 {
+            color: var(--primary);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: var(--message-user);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai .message-content {
+            background: var(--message-ai);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area */
+        .input-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--background);
+            border-top: 1px solid var(--border);
+            padding: 0.75rem;
+            padding-bottom: calc(0.75rem + var(--safe-bottom));
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            max-width: 100%;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s;
+            min-width: 0;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--primary);
+            background: white;
+        }
+
+        .message-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 1rem;
+            color: var(--text-primary);
+            min-width: 0;
+            width: 100%;
+        }
+
+        .message-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .attach-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            padding: 0.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            font-size: 1.1rem;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .send-btn:not(:disabled):active {
+            background: var(--primary-hover);
+            transform: scale(0.95);
+        }
+
+        /* Auth Screen */
+        .auth-container {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, #F3E7FF 0%, #E9D5FF 100%);
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-header h1 {
+            color: var(--primary);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+        }
+
+        .submit-btn {
+            padding: 0.875rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .submit-btn:not(:disabled):active {
+            background: var(--primary-hover);
+            transform: scale(0.98);
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .auth-switch button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: 500;
+        }
+
+        .error-msg {
+            color: #DC2626;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+
+        .success-msg {
+            color: #10B981;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+
+        /* Loading dots */
+        .loading {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes pulse {
+            0%, 80%, 100% {
+                opacity: 0.3;
+                transform: scale(0.8);
+            }
+            40% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Small screen optimizations */
+        @media (max-height: 600px) {
+            .header { padding: 0.75rem; }
+            .yappy-welcome { width: 80px; height: 80px; }
+            .welcome h2 { font-size: 1.25rem; }
+            .input-area { padding: 0.5rem; }
+        }
+
+        /* Markdown content styling */
+        .message-content p { margin-bottom: 0.5rem; }
+        .message-content p:last-child { margin-bottom: 0; }
+        .message-content code {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.125rem 0.25rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .message-content pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.75rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Simple Markdown renderer
+        function renderMarkdown(text) {
+            if (typeof marked !== 'undefined') {
+                return { __html: marked.parse(text) };
+            }
+            return { __html: text.replace(/\n/g, '<br>') };
+        }
+        
+        // Auth Component
+        function Auth({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [model, setModel] = useState('openai');
+            const [apiKey, setApiKey] = useState('');
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+                setIsLoading(true);
+
+                try {
+                    if (isLogin) {
+                        const response = await axios.post('/auth/login', {
+                            username,
+                            password
+                        });
+                        
+                        const { access_token } = response.data;
+                        localStorage.setItem('yappy_token', access_token);
+                        localStorage.setItem('yappy_model', model);
+                        localStorage.setItem('yappy_api_key', apiKey);
+                        
+                        axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+                        
+                        if (apiKey) {
+                            await axios.post('/api/user/api-key', {
+                                model_name: model,
+                                api_key: apiKey
+                            });
+                        }
+                        
+                        onLogin(access_token);
+                    } else {
+                        await axios.post('/auth/register', {
+                            username,
+                            email: `${username}@example.com`,
+                            password
+                        });
+                        
+                        setSuccess('Registration successful! Please login.');
+                        setIsLogin(true);
+                        setPassword('');
+                    }
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'An error occurred');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="auth-container">
+                    <div className="auth-card">
+                        <div className="auth-header">
+                            <div className="yappy-welcome">
+                                <div className="yappy-body">
+                                    <div className="yappy-ear left"></div>
+                                    <div className="yappy-ear right"></div>
+                                    <div className="yappy-eyes">
+                                        <div className="eye"></div>
+                                        <div className="eye"></div>
+                                    </div>
+                                    <div className="yappy-nose"></div>
+                                    <div className="yappy-mouth">
+                                        <div className="yappy-tongue"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <h1>Yappy</h1>
+                            <p style={{ color: 'var(--text-secondary)' }}>Your AI Assistant</p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="auth-form">
+                            <div className="form-group">
+                                <input
+                                    type="text"
+                                    placeholder="Username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            
+                            {isLogin && (
+                                <>
+                                    <div className="form-group">
+                                        <select value={model} onChange={(e) => setModel(e.target.value)}>
+                                            <option value="openai">OpenAI GPT-4</option>
+                                            <option value="anthropic">Anthropic Claude</option>
+                                            <option value="google">Google Gemini</option>
+                                            <option value="groq">Groq</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="form-group">
+                                        <input
+                                            type="password"
+                                            placeholder="API Key"
+                                            value={apiKey}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            
+                            {error && <div className="error-msg">{error}</div>}
+                            {success && <div className="success-msg">{success}</div>}
+                            
+                            <button type="submit" className="submit-btn" disabled={isLoading}>
+                                {isLoading ? 'Loading...' : (isLogin ? 'Login' : 'Register')}
+                            </button>
+                        </form>
+                        
+                        <div className="auth-switch">
+                            {isLogin ? "Don't have an account? " : "Already have an account? "}
+                            <button onClick={() => {
+                                setIsLogin(!isLogin);
+                                setError('');
+                                setSuccess('');
+                            }}>
+                                {isLogin ? 'Register' : 'Login'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App
+        function App() {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const messagesEndRef = useRef(null);
+            const inputRef = useRef(null);
+
+            useEffect(() => {
+                const token = localStorage.getItem('yappy_token');
+                if (token) {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    setIsAuthenticated(true);
+                }
+            }, []);
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const handleLogin = () => {
+                setIsAuthenticated(true);
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('yappy_token');
+                localStorage.removeItem('yappy_model');
+                localStorage.removeItem('yappy_api_key');
+                delete axios.defaults.headers.common['Authorization'];
+                setIsAuthenticated(false);
+                setMessages([]);
+            };
+
+            const handleSend = async () => {
+                if (!input.trim() || isLoading) return;
+
+                const userMessage = input.trim();
+                setInput('');
+                setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+                setIsLoading(true);
+
+                try {
+                    const model = localStorage.getItem('yappy_model') || 'openai';
+                    const conversationId = localStorage.getItem('yappy_conversation_id') || 
+                        `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    if (!localStorage.getItem('yappy_conversation_id')) {
+                        localStorage.setItem('yappy_conversation_id', conversationId);
+                    }
+
+                    const response = await axios.post('/api/chat', {
+                        message: userMessage,
+                        model_name: model,
+                        conversation_id: conversationId
+                    });
+
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: response.data.response
+                    }]);
+                } catch (error) {
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: 'Sorry, I encountered an error. Please try again.'
+                    }]);
+                } finally {
+                    setIsLoading(false);
+                    setTimeout(() => inputRef.current?.focus(), 100);
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+
+            if (!isAuthenticated) {
+                return <Auth onLogin={handleLogin} />;
+            }
+
+            return (
+                <div className="app">
+                    <div className="header">
+                        <div className="logo">
+                            <span>🐕</span>
+                            <span>Yappy</span>
+                        </div>
+                        <button onClick={handleLogout} className="logout-btn">
+                            Logout
+                        </button>
+                    </div>
+                    
+                    <div className="messages-container">
+                        {messages.length === 0 ? (
+                            <div className="welcome">
+                                <div className="yappy-welcome">
+                                    <div className="yappy-body">
+                                        <div className="yappy-ear left"></div>
+                                        <div className="yappy-ear right"></div>
+                                        <div className="yappy-eyes">
+                                            <div className="eye"></div>
+                                            <div className="eye"></div>
+                                        </div>
+                                        <div className="yappy-nose"></div>
+                                        <div className="yappy-mouth">
+                                            <div className="yappy-tongue"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h2>Hello, I'm Yappy!</h2>
+                                <p>Your friendly AI assistant. How can I help you today?</p>
+                            </div>
+                        ) : (
+                            <>
+                                {messages.map((msg, idx) => (
+                                    <div key={idx} className={`message ${msg.type}`}>
+                                        <div 
+                                            className="message-content"
+                                            dangerouslySetInnerHTML={renderMarkdown(msg.content)}
+                                        />
+                                    </div>
+                                ))}
+                                {isLoading && (
+                                    <div className="message ai">
+                                        <div className="message-content">
+                                            <div className="loading">
+                                                <div className="dot"></div>
+                                                <div className="dot"></div>
+                                                <div className="dot"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef} />
+                            </>
+                        )}
+                    </div>
+                    
+                    <div className="input-area">
+                        <div className="input-container">
+                            <div className="input-wrapper">
+                                <button className="attach-btn">📎</button>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    className="message-input"
+                                    placeholder="Message Yappy..."
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            <button 
+                                className="send-btn"
+                                onClick={handleSend}
+                                disabled={!input.trim() || isLoading}
+                            >
+                                ✨
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
