@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yappy - Your AI Assistant</title>
+    
+    <!-- Import Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- React and dependencies from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Marked for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        /* CSS Variables for Theme */
+        :root {
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-tertiary: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-dark: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            --gradient-yappy: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            
+            /* Colors */
+            --color-primary: #667eea;
+            --color-secondary: #764ba2;
+            --color-accent: #f093fb;
+            --color-success: #4ade80;
+            --color-error: #f87171;
+            --color-warning: #fbbf24;
+            
+            /* Dark theme colors */
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --bg-card-hover: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.5);
+            
+            /* Effects */
+            --glow-primary: 0 0 40px rgba(102, 126, 234, 0.5);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            position: relative;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Responsive App Container */
+        .app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--gradient-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated Background */
+        .animated-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .gradient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb1 {
+            width: 600px;
+            height: 600px;
+            background: var(--gradient-primary);
+            top: -200px;
+            left: -200px;
+            animation-duration: 25s;
+        }
+
+        .orb2 {
+            width: 500px;
+            height: 500px;
+            background: var(--gradient-secondary);
+            bottom: -150px;
+            right: -150px;
+            animation-duration: 30s;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(50px, 30px) scale(1.1); }
+            50% { transform: translate(-30px, 60px) scale(0.9); }
+            75% { transform: translate(30px, -30px) scale(1.05); }
+        }
+
+        /* Header - Responsive */
+        .header {
+            background: rgba(15, 12, 41, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 1.5rem;
+            z-index: 10;
+            position: relative;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .yappy-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .yappy-logo h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Desktop Logo Animation */
+        .yappy-logo-icon {
+            width: 40px;
+            height: 40px;
+            position: relative;
+        }
+
+        .yappy-mini-head {
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 50% 50% 45% 45%;
+            position: relative;
+            animation: wiggle 2s ease-in-out infinite;
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+
+        /* Header Buttons */
+        .header-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .header-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Mobile Header Buttons */
+        @media (max-width: 768px) {
+            .header-button {
+                padding: 0.5rem;
+                font-size: 1.2rem;
+                min-width: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .header-button span {
+                display: none;
+            }
+        }
+
+        /* Main Content Area */
+        .main {
+            flex: 1;
+            display: flex;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        /* Chat Container - Responsive */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                padding: 1rem;
+            }
+        }
+
+        /* Messages Area */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Message Styles */
+        .message {
+            display: flex;
+            gap: 1rem;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .message-content {
+                max-width: 85%;
+            }
+        }
+
+        .message.user .message-content {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .message.ai .message-content {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        /* Input Area - Responsive */
+        .input-area {
+            padding: 1.5rem;
+            background: rgba(15, 12, 41, 0.8);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .input-area {
+                padding: 1rem;
+            }
+        }
+
+        .input-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            resize: none;
+            min-height: 56px;
+            max-height: 200px;
+        }
+
+        .chat-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        /* File Upload Area */
+        .file-upload-area {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area.dragover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: var(--color-primary);
+        }
+
+        /* Send Button */
+        .send-button {
+            padding: 1rem 2rem;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .send-button {
+                padding: 1rem;
+            }
+            
+            .send-button span {
+                display: none;
+            }
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Modal Styles - Universal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: var(--bg-dark);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            padding: 2rem;
+            position: relative;
+            animation: modalFadeIn 0.3s ease-out;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        /* Agent Dashboard - Responsive */
+        .agent-dashboard {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .dashboard-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .dashboard-header h2 {
+            margin: 0;
+            padding-right: 3rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .agents-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .agent-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .agent-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .agent-card.selected {
+            border-color: var(--color-primary);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .agent-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-card h4 {
+            margin: 0.5rem 0;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .agent-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 0.5rem 0;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .agent-capabilities {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+            justify-content: center;
+        }
+
+        .capability-tag {
+            background: rgba(102, 126, 234, 0.2);
+            color: var(--color-primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            display: inline-block;
+            margin: 0.2rem;
+        }
+
+        .no-tasks {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+        }
+
+        .tasks-section h3,
+        .statistics-section h3,
+        .agents-section h3,
+        .agent-details h3 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .task-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .task-id {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .task-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .task-description {
+            color: var(--text-secondary);
+            margin: 0.5rem 0;
+        }
+
+        .task-duration {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .agent-details {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .details-content h4 {
+            color: var(--text-primary);
+            margin: 1rem 0 0.5rem;
+        }
+
+        .details-content ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .details-content li {
+            padding: 0.25rem 0;
+            color: var(--text-secondary);
+        }
+
+        .usage-example {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .usage-example code {
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Settings Modal */
+        .settings-modal {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .settings-section {
+            margin-bottom: 2rem;
+        }
+
+        .settings-section h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .api-key-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Welcome Screen - Responsive */
+        .welcome-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .yappy-avatar {
+            width: 150px;
+            height: 150px;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        @media (max-width: 768px) {
+            .yappy-avatar {
+                width: 120px;
+                height: 120px;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: flex;
+            gap: 0.3rem;
+            padding: 0.5rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        .dot:nth-child(3) { animation-delay: 0; }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Mobile Specific Styles */
+        @media (max-width: 768px) {
+            .modal-content {
+                padding: 1.5rem;
+                margin: 1rem;
+            }
+            
+            .yappy-logo h1 {
+                font-size: 1.5rem;
+            }
+            
+            .message-content {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        /* Touch-friendly interactions */
+        @media (hover: none) {
+            .header-button:active {
+                transform: scale(0.95);
+            }
+            
+            .send-button:active:not(:disabled) {
+                transform: scale(0.95);
+            }
+            
+            .agent-card:active {
+                transform: scale(0.98);
+            }
+        }
+
+        /* Auth Form Styles */
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: var(--gradient-dark);
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        .auth-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .auth-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .auth-toggle a {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+
+        /* Error message styles */
+        .error-message {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: #f87171;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Info message styles */
+        .info-message {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Agent Dashboard Component
+        const AgentDashboard = ({ isOpen, onClose }) => {
+            const [agents, setAgents] = useState({});
+            const [agentStatus, setAgentStatus] = useState({});
+            const [activeTasks, setActiveTasks] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [selectedAgent, setSelectedAgent] = useState(null);
+            const [refreshInterval, setRefreshInterval] = useState(null);
+
+            useEffect(() => {
+                if (isOpen) {
+                    loadAgentData();
+                    // Set up auto-refresh every 5 seconds
+                    const interval = setInterval(loadAgentData, 5000);
+                    setRefreshInterval(interval);
+                }
+                
+                return () => {
+                    if (refreshInterval) {
+                        clearInterval(refreshInterval);
+                    }
+                };
+            }, [isOpen]);
+
+            const loadAgentData = async () => {
+                try {
+                    // Get auth token from localStorage
+                    const token = localStorage.getItem('yappy_token');
+                    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+                    // Load agent capabilities
+                    const capabilitiesRes = await axios.get('/api/agents', { headers });
+                    if (capabilitiesRes.data.agents) {
+                        setAgents(capabilitiesRes.data.agents);
+                    }
+
+                    // Load agent status
+                    const statusRes = await axios.get('/api/agents/status', { headers });
+                    setAgentStatus(statusRes.data);
+                    setActiveTasks(statusRes.data.task_details || []);
+                    
+                    setIsLoading(false);
+                } catch (error) {
+                    console.error('Failed to load agent data:', error);
+                    setIsLoading(false);
+                }
+            };
+
+            const getAgentIcon = (agentId) => {
+                const icons = {
+                    casual: '💬',
+                    code: '💻',
+                    file: '📁',
+                    browser: '🌐',
+                    planner: '📋',
+                    mcp: '🔧',
+                    research: '🔍',
+                    data: '📊',
+                    automation: '⚡',
+                    orchestrator: '🎭'
+                };
+                return icons[agentId] || '🤖';
+            };
+
+            const getAgentStatusColor = (status) => {
+                return status === 'busy' ? '#f59e0b' : '#10b981';
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content agent-dashboard" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                            className="close-button" 
+                            onClick={onClose}
+                            aria-label="Close"
+                        >
+                            ✕
+                        </button>
+                        <div className="dashboard-header">
+                            <h2>🤖 AI Agent Army Dashboard</h2>
+                        </div>
+
+                        {isLoading ? (
+                            <div className="loading-spinner">Loading agent data...</div>
+                        ) : (
+                            <div className="dashboard-content">
+                                {/* Agent Grid */}
+                                <div className="agents-section">
+                                    <h3>Available Agents</h3>
+                                    <div className="agents-grid">
+                                        {Object.entries(agents).map(([agentId, agentInfo]) => {
+                                            const status = agentStatus.agents?.[agentId];
+                                            return (
+                                                <div 
+                                                    key={agentId} 
+                                                    className={`agent-card ${selectedAgent === agentId ? 'selected' : ''}`}
+                                                    onClick={() => setSelectedAgent(agentId)}
+                                                >
+                                                    <div className="agent-icon">{getAgentIcon(agentId)}</div>
+                                                    <h4>{agentInfo.name}</h4>
+                                                    <p className="agent-description">{agentInfo.description}</p>
+                                                    <div className="agent-status">
+                                                        <span 
+                                                            className="status-dot"
+                                                            style={{ backgroundColor: getAgentStatusColor(status?.status) }}
+                                                        />
+                                                        {status?.status || 'idle'}
+                                                    </div>
+                                                    <div className="agent-capabilities">
+                                                        {agentInfo.capabilities && agentInfo.capabilities.slice(0, 3).map((cap, idx) => (
+                                                            <span key={idx} className="capability-tag">{cap}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Active Tasks */}
+                                <div className="tasks-section">
+                                    <h3>Active Tasks ({activeTasks.length})</h3>
+                                    {activeTasks.length === 0 ? (
+                                        <p className="no-tasks">No active tasks at the moment</p>
+                                    ) : (
+                                        <div className="task-list">
+                                            {activeTasks.map((task, idx) => (
+                                                <div key={idx} className="task-item">
+                                                    <div className="task-header">
+                                                        <span className="task-id">Task {task.id}</span>
+                                                        <span className={`task-status ${task.status}`}>
+                                                            {task.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="task-description">{task.description}</p>
+                                                    <div className="task-duration">
+                                                        Duration: {task.duration}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Selected Agent Details */}
+                                {selectedAgent && agents[selectedAgent] && (
+                                    <div className="agent-details">
+                                        <h3>Agent Details: {agents[selectedAgent].name}</h3>
+                                        <div className="details-content">
+                                            <h4>Capabilities:</h4>
+                                            <ul>
+                                                {agents[selectedAgent].capabilities && agents[selectedAgent].capabilities.map((cap, idx) => (
+                                                    <li key={idx}>{cap}</li>
+                                                ))}
+                                            </ul>
+                                            <h4>How to use:</h4>
+                                            <p className="usage-example">
+                                                Type <code>@{selectedAgent}</code> followed by your request, or let the orchestrator automatically assign this agent to relevant tasks.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Statistics */}
+                                <div className="statistics-section">
+                                    <h3>System Statistics</h3>
+                                    <div className="stats-grid">
+                                        <div className="stat-card">
+                                            <div className="stat-value">
+                                                {Object.keys(agents).length}
+                                            </div>
+                                            <div className="stat-label">Total Agents</div>
+                                        </div>
+                                        <div className="stat-card">
+                                            <div className="stat-value">
+                                                {agentStatus.active_tasks || 0}
+                                            </div>
+                                            <div className="stat-label">Active Tasks</div>
+                                        </div>
+                                        <div className="stat-card">
+                                            <div className="stat-value">
+                                                {agentStatus.completed_tasks || 0}
+                                            </div>
+                                            <div className="stat-label">Completed</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Simple Markdown component using marked
+        function MarkdownView({ children }) {
+            const html = marked.parse(children || '');
+            return <div dangerouslySetInnerHTML={{ __html: html }} />;
+        }
+
+        // Auth Component
+        function Auth({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [username, setUsername] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setIsLoading(true);
+
+                try {
+                    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+                    const payload = isLogin 
+                        ? { username, password }
+                        : { username, email, password };
+
+                    const response = await axios.post(endpoint, payload);
+                    
+                    if (response.data.access_token) {
+                        localStorage.setItem('yappy_token', response.data.access_token);
+                        localStorage.setItem('yappy_username', response.data.username);
+                        onLogin(response.data.username);
+                    }
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'An error occurred');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="auth-container">
+                    <div className="animated-bg">
+                        <div className="gradient-orb orb1"></div>
+                        <div className="gradient-orb orb2"></div>
+                    </div>
+                    <div className="auth-card">
+                        <div className="auth-header">
+                            <div className="yappy-logo" style={{ justifyContent: 'center' }}>
+                                <div className="yappy-logo-icon">
+                                    <div className="yappy-mini-head">
+                                        <div className="yappy-mini-ear left"></div>
+                                        <div className="yappy-mini-ear right"></div>
+                                        <div className="yappy-mini-eye left"></div>
+                                        <div className="yappy-mini-eye right"></div>
+                                        <div className="yappy-mini-nose"></div>
+                                    </div>
+                                </div>
+                                <h1>Yappy</h1>
+                            </div>
+                            <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                                {isLogin ? 'Welcome back!' : 'Create your account'}
+                            </p>
+                        </div>
+
+                        {error && (
+                            <div className="error-message">{error}</div>
+                        )}
+
+                        <form onSubmit={handleSubmit}>
+                            <input
+                                type="text"
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="auth-input"
+                                required
+                            />
+                            
+                            {!isLogin && (
+                                <input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="auth-input"
+                                    required
+                                />
+                            )}
+                            
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="auth-input"
+                                required
+                            />
+                            
+                            <button 
+                                type="submit" 
+                                className="auth-button"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+                            </button>
+                        </form>
+
+                        <div className="auth-toggle">
+                            {isLogin ? (
+                                <>
+                                    Don't have an account? {' '}
+                                    <a href="#" onClick={(e) => {
+                                        e.preventDefault();
+                                        setIsLogin(false);
+                                        setError('');
+                                    }}>Sign up</a>
+                                </>
+                            ) : (
+                                <>
+                                    Already have an account? {' '}
+                                    <a href="#" onClick={(e) => {
+                                        e.preventDefault();
+                                        setIsLogin(true);
+                                        setError('');
+                                    }}>Sign in</a>
+                                </>
+                            )}
+                        </div>
+
+                        {isLogin && (
+                            <div className="info-message">
+                                <strong>Demo Account:</strong><br />
+                                Username: admin<br />
+                                Password: yappy123
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Settings Component
+        function Settings({ onClose }) {
+            const [apiKeys, setApiKeys] = useState({
+                openai: '',
+                anthropic: '',
+                google: '',
+                groq: ''
+            });
+            const [isLoading, setIsLoading] = useState(false);
+            const [message, setMessage] = useState('');
+
+            useEffect(() => {
+                loadApiKeys();
+            }, []);
+
+            const loadApiKeys = async () => {
+                try {
+                    const token = localStorage.getItem('yappy_token');
+                    const response = await axios.get('/api/user/api-keys', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    const keys = {};
+                    response.data.models.forEach(model => {
+                        keys[model] = '••••••••';
+                    });
+                    setApiKeys(keys);
+                } catch (error) {
+                    console.error('Failed to load API keys:', error);
+                }
+            };
+
+            const saveApiKey = async (model) => {
+                if (!apiKeys[model] || apiKeys[model] === '••••••••') return;
+                
+                setIsLoading(true);
+                try {
+                    const token = localStorage.getItem('yappy_token');
+                    await axios.put('/api/user/api-key', {
+                        model_name: model,
+                        api_key: apiKeys[model]
+                    }, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    setMessage(`${model} API key saved successfully!`);
+                    setTimeout(() => setMessage(''), 3000);
+                    
+                    // Reset to masked value
+                    setApiKeys(prev => ({ ...prev, [model]: '••••••••' }));
+                } catch (error) {
+                    setMessage(`Failed to save ${model} API key`);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content settings-modal" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                            className="close-button" 
+                            onClick={onClose}
+                            aria-label="Close"
+                        >
+                            ✕
+                        </button>
+                        <h2>Settings</h2>
+                        
+                        {message && (
+                            <div className="info-message">{message}</div>
+                        )}
+                        
+                        <div className="settings-section">
+                            <h3>API Keys</h3>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                                Configure your LLM API keys to use different models
+                            </p>
+                            
+                            {Object.entries(apiKeys).map(([model, key]) => (
+                                <div key={model} style={{ marginBottom: '1rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', textTransform: 'capitalize' }}>
+                                        {model} API Key
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input
+                                            type="password"
+                                            value={key}
+                                            onChange={(e) => setApiKeys(prev => ({ ...prev, [model]: e.target.value }))}
+                                            onFocus={(e) => {
+                                                if (e.target.value === '••••••••') {
+                                                    setApiKeys(prev => ({ ...prev, [model]: '' }));
+                                                }
+                                            }}
+                                            className="api-key-input"
+                                            style={{ flex: 1 }}
+                                            placeholder={`Enter ${model} API key`}
+                                        />
+                                        <button
+                                            onClick={() => saveApiKey(model)}
+                                            disabled={isLoading || !key || key === '••••••••'}
+                                            className="auth-button"
+                                            style={{ width: 'auto', marginTop: 0, padding: '0.75rem 1.5rem' }}
+                                        >
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="settings-section">
+                            <h3>About Yappy</h3>
+                            <p style={{ color: 'var(--text-secondary)' }}>
+                                Yappy is your AI assistant powered by multiple language models.
+                                Version 1.0.0
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component
+        function App() {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [username, setUsername] = useState('');
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            const [showAgentDashboard, setShowAgentDashboard] = useState(false);
+            const [isDragging, setIsDragging] = useState(false);
+            const [uploadedFile, setUploadedFile] = useState(null);
+            const messagesEndRef = useRef(null);
+            const fileInputRef = useRef(null);
+            const textareaRef = useRef(null);
+
+            useEffect(() => {
+                const token = localStorage.getItem('yappy_token');
+                const savedUsername = localStorage.getItem('yappy_username');
+                if (token && savedUsername) {
+                    setIsAuthenticated(true);
+                    setUsername(savedUsername);
+                }
+            }, []);
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const handleLogin = (username) => {
+                setIsAuthenticated(true);
+                setUsername(username);
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('yappy_token');
+                localStorage.removeItem('yappy_username');
+                setIsAuthenticated(false);
+                setUsername('');
+                setMessages([]);
+            };
+
+            const handleSend = async () => {
+                if (!input.trim() && !uploadedFile) return;
+
+                const userMessage = { 
+                    type: 'user', 
+                    content: input,
+                    file: uploadedFile ? {
+                        name: uploadedFile.name,
+                        type: uploadedFile.type
+                    } : null
+                };
+                setMessages(prev => [...prev, userMessage]);
+                setInput('');
+                setIsLoading(true);
+
+                try {
+                    const token = localStorage.getItem('yappy_token');
+                    
+                    // Get available API keys
+                    let model = 'openai';
+                    try {
+                        const keysResponse = await axios.get('/api/user/api-keys', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        const availableModels = keysResponse.data.models || [];
+                        if (availableModels.length > 0) {
+                            model = availableModels[0];
+                        }
+                    } catch (error) {
+                        console.error('Failed to get API keys:', error);
+                    }
+
+                    const payload = {
+                        message: input,
+                        model_name: model
+                    };
+
+                    if (uploadedFile) {
+                        payload.file_data = {
+                            name: uploadedFile.name,
+                            type: uploadedFile.type,
+                            content: uploadedFile.content
+                        };
+                    }
+
+                    const response = await axios.post('/api/chat', payload, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: response.data.response,
+                        agent: response.data.agent_used
+                    }]);
+                    
+                    setUploadedFile(null);
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: 'Sorry, I encountered an error. Please try again.'
+                    }]);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setIsDragging(true);
+            };
+
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+            };
+
+            const handleDrop = async (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    await processFile(file);
+                }
+            };
+
+            const handleFileSelect = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    await processFile(file);
+                }
+            };
+
+            const processFile = async (file) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setUploadedFile({
+                        name: file.name,
+                        type: file.type,
+                        content: e.target.result
+                    });
+                };
+                
+                if (file.type.startsWith('image/')) {
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            };
+
+            if (!isAuthenticated) {
+                return <Auth onLogin={handleLogin} />;
+            }
+
+            return (
+                <div className="app">
+                    <div className="animated-bg">
+                        <div className="gradient-orb orb1"></div>
+                        <div className="gradient-orb orb2"></div>
+                    </div>
+                    
+                    <header className="header">
+                        <div className="header-content">
+                            <div className="yappy-logo">
+                                <div className="yappy-logo-icon">
+                                    <div className="yappy-mini-head">
+                                        <div className="yappy-mini-ear left"></div>
+                                        <div className="yappy-mini-ear right"></div>
+                                        <div className="yappy-mini-eye left"></div>
+                                        <div className="yappy-mini-eye right"></div>
+                                        <div className="yappy-mini-nose"></div>
+                                    </div>
+                                </div>
+                                <h1>Yappy</h1>
+                            </div>
+                            <div className="header-buttons">
+                                <button onClick={() => setShowAgentDashboard(true)} className="header-button">
+                                    🤖 <span>Agents</span>
+                                </button>
+                                <button onClick={() => setShowSettings(true)} className="header-button">
+                                    ⚙️ <span>Settings</span>
+                                </button>
+                                <button onClick={handleLogout} className="header-button">
+                                    🚪 <span>Logout</span>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    <main className="main">
+                        <div className="chat-container">
+                            <div className="messages">
+                                {messages.length === 0 ? (
+                                    <div className="welcome-message">
+                                        <div className="yappy-avatar">
+                                            <div className="yappy-character">
+                                                <div className="yappy-head">
+                                                    <div className="yappy-ear left"></div>
+                                                    <div className="yappy-ear right"></div>
+                                                    <div className="yappy-face">
+                                                        <div className="yappy-eye left">
+                                                            <div className="yappy-pupil"></div>
+                                                        </div>
+                                                        <div className="yappy-eye right">
+                                                            <div className="yappy-pupil"></div>
+                                                        </div>
+                                                        <div className="yappy-nose"></div>
+                                                        <div className="yappy-mouth"></div>
+                                                    </div>
+                                                </div>
+                                                <div className="yappy-body">
+                                                    <div className="yappy-tail"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <h2>Hi {username}! I'm Yappy 🐕</h2>
+                                        <p>Your AI assistant with an army of specialized agents ready to help!</p>
+                                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>
+                                            Ask me anything or upload a file to get started
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {messages.map((msg, idx) => (
+                                            <div key={idx} className={`message ${msg.type}`}>
+                                                <div className="message-content">
+                                                    {msg.file && (
+                                                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', opacity: 0.8 }}>
+                                                            📎 {msg.file.name}
+                                                        </div>
+                                                    )}
+                                                    {msg.agent && (
+                                                        <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', opacity: 0.8 }}>
+                                                            Agent: {msg.agent}
+                                                        </div>
+                                                    )}
+                                                    <MarkdownView>{msg.content}</MarkdownView>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {isLoading && (
+                                            <div className="message ai">
+                                                <div className="message-content">
+                                                    <div className="loading">
+                                                        <div className="dot"></div>
+                                                        <div className="dot"></div>
+                                                        <div className="dot"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </>
+                                )}
+                            </div>
+                            
+                            <div className="input-area">
+                                {uploadedFile && (
+                                    <div className="file-upload-area" style={{ marginBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span>📎 {uploadedFile.name}</span>
+                                            <button 
+                                                onClick={() => setUploadedFile(null)}
+                                                style={{ 
+                                                    background: 'none', 
+                                                    border: 'none', 
+                                                    color: 'var(--text-secondary)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div 
+                                    className={`file-upload-area ${isDragging ? 'dragover' : ''}`}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    style={{ display: isDragging ? 'block' : 'none' }}
+                                >
+                                    <p>Drop your file here</p>
+                                </div>
+                                
+                                <div className="input-container">
+                                    <div className="input-wrapper">
+                                        <textarea
+                                            ref={textareaRef}
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            onKeyPress={handleKeyPress}
+                                            placeholder="Type your message..."
+                                            className="chat-input"
+                                            rows="1"
+                                            disabled={isLoading}
+                                        />
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            onChange={handleFileSelect}
+                                            style={{ display: 'none' }}
+                                            accept="image/*,.txt,.pdf,.csv,.json,.xml,.html,.md"
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="header-button"
+                                        disabled={isLoading}
+                                        style={{ padding: '1rem' }}
+                                    >
+                                        📎
+                                    </button>
+                                    <button 
+                                        onClick={handleSend}
+                                        disabled={isLoading || (!input.trim() && !uploadedFile)}
+                                        className="send-button"
+                                    >
+                                        <span>Send</span> →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                    
+                    {showSettings && (
+                        <Settings onClose={() => setShowSettings(false)} />
+                    )}
+                    
+                    {showAgentDashboard && (
+                        <AgentDashboard 
+                            isOpen={showAgentDashboard} 
+                            onClose={() => setShowAgentDashboard(false)} 
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

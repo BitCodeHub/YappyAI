@@ -917,7 +917,13 @@ except ImportError:
 # API Endpoints
 @app.get("/")
 async def root(request: Request):
-    """Redirect to chat interface - mobile responsive"""
+    """Serve unified responsive chat interface"""
+    # First try to serve the responsive version
+    responsive_path = os.path.join(static_dir, "yappy_responsive.html")
+    if os.path.exists(responsive_path):
+        return FileResponse(responsive_path)
+    
+    # Fallback to device-specific versions if responsive doesn't exist
     user_agent = request.headers.get('user-agent', '').lower()
     
     # Check if mobile device
