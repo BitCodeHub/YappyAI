@@ -692,9 +692,13 @@ async def root(request: Request):
     
     if is_mobile:
         # Serve mobile-optimized version
-        mobile_path = os.path.join(static_dir, "yappy_mobile.html")
+        mobile_path = os.path.join(static_dir, "index_mobile.html")
         if os.path.exists(mobile_path):
             return FileResponse(mobile_path)
+        # Fallback to yappy_mobile_v2.html if index_mobile doesn't exist
+        mobile_v2_path = os.path.join(static_dir, "yappy_mobile_v2.html")
+        if os.path.exists(mobile_v2_path):
+            return FileResponse(mobile_v2_path)
     
     # Serve desktop version
     yappy_path = os.path.join(static_dir, "yappy.html")
