@@ -148,8 +148,6 @@
         }
 
         .logout-button {
-            position: absolute;
-            right: 30px;
             background: var(--gradient-secondary);
             color: white;
             border: none;
@@ -165,6 +163,13 @@
         .logout-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 25px rgba(240, 147, 251, 0.5);
+        }
+        
+        .header-buttons {
+            position: absolute;
+            right: 30px;
+            display: flex;
+            gap: 10px;
         }
 
         /* Main Content */
@@ -1945,7 +1950,7 @@
                                 </div>
                                 <h1>Yappy</h1>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
+                            <div className="header-buttons">
                                 <button onClick={() => setShowSettings(true)} className="logout-button">
                                     Settings
                                 </button>
