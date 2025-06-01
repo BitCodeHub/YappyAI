@@ -116,3 +116,4 @@ python3 app.py --provider ollama --port 3333
 
 ## Current Development Notes
 - 2 is running. how do i do #3
+- ALWAYS provide git commands after completing any file changes or tasks

@@ -149,6 +149,8 @@
             const [authToken, setAuthToken] = useState(null);
             const [uploadedFiles, setUploadedFiles] = useState([]);
             const [fileContext, setFileContext] = useState({});
+            const [conversationContext, setConversationContext] = useState([]);
+            const [currentAgent, setCurrentAgent] = useState(null);
             
             const messagesEndRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -179,10 +181,21 @@
             
             // Agent mapping
             const agentMap = {
-                'Write': 'WritingAgent',
-                'Learn': 'ResearchAgent',
-                'Code': 'CodeAgent',
-                'Anything': 'GeneralistAgent'
+                'Write': 'Writing Agent',
+                'Learn': 'Research Agent',
+                'Code': 'Code Agent',
+                'Anything': 'Casual Agent'
+            };
+            
+            // Full agent names for display
+            const agentDisplayNames = {
+                'Writing Agent': 'Writing Agent',
+                'Research Agent': 'Research Agent',
+                'Code Agent': 'Code Agent',
+                'Casual Agent': 'Casual Agent',
+                'Travel Agent': 'Travel Agent',
+                'File Agent': 'File Agent',
+                'Browser Agent': 'Browser Agent'
             };
             
             // Dropdown options
@@ -252,34 +265,13 @@
                         // Add message about file upload
                         const uploadMessage = {
                             id: Date.now(),
-                            type: 'user',
-                            content: `Uploaded file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
+                            type: 'system',
+                            content: `File uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
                             timestamp: new Date(),
                             fileId: fileData.id
                         };
                         
                         setMessages(prev => [...prev, uploadMessage]);
-                        
-                        // Auto-analyze based on file type
-                        let analysisPrompt = `Please analyze the uploaded file: ${file.name}`;
-                        let agent = 'GeneralistAgent';
-                        
-                        if (file.type.includes('image')) {
-                            agent = 'GeneralistAgent';
-                            analysisPrompt = `I've uploaded an image (${file.name}). Please analyze and describe what you see.`;
-                        } else if (file.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c|go|rs|sql)$/i)) {
-                            agent = 'CodeAgent';
-                            analysisPrompt = `I've uploaded a code file (${file.name}). Please review and analyze the code.`;
-                        } else if (file.type.includes('text') || file.name.match(/\.(txt|md|doc|docx)$/i)) {
-                            agent = 'WritingAgent';
-                            analysisPrompt = `I've uploaded a document (${file.name}). Please summarize its contents.`;
-                        } else if (file.name.match(/\.(csv|json|xml)$/i)) {
-                            agent = 'ResearchAgent';
-                            analysisPrompt = `I've uploaded a data file (${file.name}). Please analyze the data structure and content.`;
-                        }
-                        
-                        // Send for analysis
-                        await handleSend(analysisPrompt, agent, fileData);
                     };
                     
                     if (file.type.includes('image')) {
@@ -313,6 +305,12 @@
                 try {
                     // Determine which agent to use
                     let agent = agentType;
+                    
+                    // If this is a follow-up question and we have a current agent, use it
+                    if (!agent && currentAgent && conversationContext.length > 0) {
+                        agent = currentAgent;
+                    }
+                    
                     if (!agent) {
                         // Check if message references uploaded files
                         const lowerMessage = messageText.toLowerCase();
@@ -320,36 +318,53 @@
                             lowerMessage.includes(file.name.toLowerCase()) || 
                             lowerMessage.includes('file') || 
                             lowerMessage.includes('document') ||
-                            lowerMessage.includes('image')
+                            lowerMessage.includes('image') ||
+                            lowerMessage.includes('uploaded')
                         );
                         
-                        if (hasFileReference) {
+                        if (hasFileReference && uploadedFiles.length > 0) {
                             // Route based on file type if referencing files
                             const referencedFile = uploadedFiles[uploadedFiles.length - 1];
                             if (referencedFile) {
                                 if (referencedFile.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c|go|rs|sql)$/i)) {
-                                    agent = 'CodeAgent';
+                                    agent = 'Code Agent';
                                 } else if (referencedFile.type.includes('image')) {
-                                    agent = 'GeneralistAgent';
+                                    agent = 'Casual Agent';
                                 } else if (referencedFile.name.match(/\.(txt|md|doc|docx)$/i)) {
-                                    agent = 'WritingAgent';
+                                    agent = 'Writing Agent';
                                 } else if (referencedFile.name.match(/\.(csv|json|xml)$/i)) {
-                                    agent = 'ResearchAgent';
+                                    agent = 'Research Agent';
+                                } else {
+                                    agent = 'File Agent';
                                 }
                             }
                         } else {
                             // Standard routing
-                            if (lowerMessage.includes('write') || lowerMessage.includes('blog') || lowerMessage.includes('story')) {
-                                agent = 'WritingAgent';
+                            if (lowerMessage.includes('travel') || lowerMessage.includes('trip') || lowerMessage.includes('vacation')) {
+                                agent = 'Travel Agent';
+                            } else if (lowerMessage.includes('write') || lowerMessage.includes('blog') || lowerMessage.includes('story')) {
+                                agent = 'Writing Agent';
                             } else if (lowerMessage.includes('learn') || lowerMessage.includes('explain') || lowerMessage.includes('what is')) {
-                                agent = 'ResearchAgent';
-                            } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('sql')) {
-                                agent = 'CodeAgent';
+                                agent = 'Research Agent';
+                            } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('sql') || lowerMessage.includes('program')) {
+                                agent = 'Code Agent';
                             } else {
-                                agent = 'GeneralistAgent';
+                                agent = 'Casual Agent';
                             }
                         }
                     }
+                    
+                    // Set current agent for follow-up questions
+                    setCurrentAgent(agent);
+                    
+                    // Add routing message
+                    const routingMessage = {
+                        id: Date.now() + 0.5,
+                        type: 'system',
+                        content: `Routing you to ${agent}...`,
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, routingMessage]);
                     
                     // If authenticated, make real API call
                     if (isAuthenticated && authToken) {
@@ -383,12 +398,19 @@
                         const aiMessage = {
                             id: Date.now() + 1,
                             type: 'ai',
-                            agent: response.data.agent_used || agent,
+                            agent: agentDisplayNames[response.data.agent_used] || agentDisplayNames[agent] || agent,
                             content: response.data.response,
                             timestamp: new Date()
                         };
                         
                         setMessages(prev => [...prev, aiMessage]);
+                        
+                        // Update conversation context for follow-ups
+                        setConversationContext(prev => [...prev, {
+                            user: messageText,
+                            ai: response.data.response,
+                            agent: agent
+                        }]);
                     } else {
                         // Simulate response
                         await simulateAgentResponse(agent, messageText, attachedFile);
@@ -432,10 +454,13 @@
                 } else {
                     // Standard responses based on agent type
                     const responses = {
-                        'WritingAgent': `I'll help you write that. Here's a creative start:\n\n"In the age of artificial intelligence, we stand at the crossroads of innovation and imagination. Every line of code written today shapes tomorrow's reality..."`,
-                        'ResearchAgent': `Let me explain that for you:\n\nThe concept you're asking about is fascinating. It involves understanding the fundamental principles that govern how systems interact and evolve over time. Here are the key points to understand...`,
-                        'CodeAgent': `Here's a solution for your coding request:\n\n\`\`\`javascript\nfunction TodoApp() {\n  const [todos, setTodos] = useState([]);\n  \n  const addTodo = (text) => {\n    setTodos([...todos, { id: Date.now(), text, done: false }]);\n  };\n  \n  return (\n    <div>\n      {/* Todo implementation */}\n    </div>\n  );\n}\n\`\`\``,
-                        'GeneralistAgent': `I'd be happy to help with that!\n\nBased on what you're asking, here's my thoughtful response: Life is a journey of continuous learning and growth. Whether you're planning a meal, seeking advice, or exploring new ideas, the key is to approach each moment with curiosity and openness.`
+                        'Writing Agent': `I'll help you write that. Here's a creative start:\n\n"In the age of artificial intelligence, we stand at the crossroads of innovation and imagination. Every line of code written today shapes tomorrow's reality..."`,
+                        'Research Agent': `Let me explain that for you:\n\nThe concept you're asking about is fascinating. It involves understanding the fundamental principles that govern how systems interact and evolve over time. Here are the key points to understand...`,
+                        'Code Agent': `Here's a solution for your coding request:\n\n\`\`\`javascript\nfunction TodoApp() {\n  const [todos, setTodos] = useState([]);\n  \n  const addTodo = (text) => {\n    setTodos([...todos, { id: Date.now(), text, done: false }]);\n  };\n  \n  return (\n    <div>\n      {/* Todo implementation */}\n    </div>\n  );\n}\n\`\`\``,
+                        'Casual Agent': `I'd be happy to help with that!\n\nBased on what you're asking, here's my thoughtful response: Life is a journey of continuous learning and growth. Whether you're planning a meal, seeking advice, or exploring new ideas, the key is to approach each moment with curiosity and openness.`,
+                        'Travel Agent': `I'll help you plan your travel!\n\nBased on your request, let me suggest some amazing destinations and travel tips. Whether you're looking for adventure, relaxation, or cultural experiences, I can help you create the perfect itinerary.`,
+                        'File Agent': `I'll analyze your file for you.\n\nBased on the file type and content, I can help you understand its structure, extract information, or perform specific operations on it.`,
+                        'Browser Agent': `I'll help you navigate the web and find what you're looking for.\n\nI can search for information, fill out forms, or interact with websites on your behalf.`
                     };
                     
                     response = responses[agent] || 'I understand your request. Let me help you with that...';
@@ -444,12 +469,19 @@
                 const aiMessage = {
                     id: Date.now() + 1,
                     type: 'ai',
-                    agent: agent,
+                    agent: agentDisplayNames[agent] || agent,
                     content: response,
                     timestamp: new Date()
                 };
                 
                 setMessages(prev => [...prev, aiMessage]);
+                
+                // Update conversation context for follow-ups
+                setConversationContext(prev => [...prev, {
+                    user: message,
+                    ai: response,
+                    agent: agent
+                }]);
             };
             
             // Handle key press
@@ -493,33 +525,45 @@
                         
                         {/* Messages Area */}
                         <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2 md:px-0">
-                            {messages.map(message => (
-                                <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] md:max-w-3xl px-3 md:px-4 py-2 md:py-3 rounded-lg ${
-                                        message.type === 'user' 
-                                            ? 'bg-dark-tertiary text-text-primary' 
-                                            : 'bg-dark-secondary text-text-primary'
-                                    }`}>
-                                        {message.type === 'ai' && (
-                                            <div className="text-orange-accent text-xs md:text-sm font-medium mb-1">
-                                                [{message.agent}]
+                            {messages.map(message => {
+                                if (message.type === 'system') {
+                                    return (
+                                        <div key={message.id} className="flex justify-center">
+                                            <div className="text-xs md:text-sm text-text-secondary italic">
+                                                {message.content}
                                             </div>
-                                        )}
-                                        <div className="whitespace-pre-wrap text-sm md:text-base">{message.content}</div>
-                                        {/* Show attached file preview if it's an image */}
-                                        {message.attachedFile && message.attachedFile.type.includes('image') && (
-                                            <div className="mt-2">
-                                                <img 
-                                                    src={message.attachedFile.content} 
-                                                    alt={message.attachedFile.name}
-                                                    className="max-w-full rounded-lg"
-                                                    style={{ maxHeight: '300px' }}
-                                                />
-                                            </div>
-                                        )}
+                                        </div>
+                                    );
+                                }
+                                
+                                return (
+                                    <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] md:max-w-3xl px-3 md:px-4 py-2 md:py-3 rounded-lg ${
+                                            message.type === 'user' 
+                                                ? 'bg-dark-tertiary text-text-primary' 
+                                                : 'bg-dark-secondary text-text-primary'
+                                        }`}>
+                                            {message.type === 'ai' && (
+                                                <div className="text-orange-accent text-xs md:text-sm font-medium mb-1">
+                                                    [{message.agent}]
+                                                </div>
+                                            )}
+                                            <div className="whitespace-pre-wrap text-sm md:text-base">{message.content}</div>
+                                            {/* Show attached file preview if it's an image */}
+                                            {message.attachedFile && message.attachedFile.type.includes('image') && (
+                                                <div className="mt-2">
+                                                    <img 
+                                                        src={message.attachedFile.content} 
+                                                        alt={message.attachedFile.name}
+                                                        className="max-w-full rounded-lg"
+                                                        style={{ maxHeight: '300px' }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             
                             {/* Loading indicator */}
                             {isLoading && (
@@ -594,17 +638,6 @@
                                             </svg>
                                         </button>
                                         
-                                        {/* Other buttons - Hidden on mobile */}
-                                        <button className="hidden md:block text-text-secondary hover:text-text-primary p-2">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                            </svg>
-                                        </button>
-                                        <button className="hidden md:block text-text-secondary hover:text-text-primary p-2">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                            </svg>
-                                        </button>
                                     </div>
                                     
                                     {/* Input Field */}
