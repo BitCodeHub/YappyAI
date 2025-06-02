@@ -129,26 +129,7 @@
             animation-delay: 0.32s;
         }
         
-        /* Sidebar animations */
-        .sidebar-overlay {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-        }
-        
-        .sidebar-overlay.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        .sidebar-content {
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .sidebar-content.show {
-            transform: translateX(0);
-        }
+        /* Remove old sidebar animations - using Tailwind transitions */
         
         /* Hide scrollbar for action buttons on mobile */
         .action-buttons-scroll::-webkit-scrollbar {
@@ -682,18 +663,26 @@
             return (
                 <div className="min-h-screen bg-dark-bg flex flex-col relative">
                     {/* Sidebar Overlay */}
-                    {isSidebarOpen && (
-                        <div 
-                            className={`fixed inset-0 bg-black bg-opacity-50 z-40 sidebar-overlay ${isSidebarOpen ? 'show' : ''}`}
-                            onClick={() => setIsSidebarOpen(false)}
-                        />
-                    )}
+                    <div 
+                        className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${isSidebarOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
                     
                     {/* Sidebar */}
-                    <div className={`fixed left-0 top-0 h-full w-80 bg-dark-secondary z-40 sidebar-content ${isSidebarOpen ? 'show' : ''}`}>
-                        {/* Sidebar Header */}
-                        <div className="p-4 border-b border-dark-tertiary">
+                    <div className={`fixed left-0 top-0 h-full w-80 bg-dark-secondary z-50 transform transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        {/* Sidebar Header with Close Button */}
+                        <div className="p-4 border-b border-dark-tertiary flex items-center justify-between">
+                            <button
+                                onClick={() => setIsSidebarOpen(false)}
+                                className="p-2 -ml-2 rounded-md hover:bg-dark-tertiary/50 transition-all group"
+                            >
+                                {/* Same icon as header for consistency */}
+                                <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                </svg>
+                            </button>
                             <h2 className="text-sm font-medium text-text-secondary">History</h2>
+                            <div className="w-9" /> {/* Spacer for centering */}
                         </div>
                         
                         {/* New Chat Button */}
@@ -797,12 +786,11 @@
                             <div className="max-w-4xl mx-auto w-full px-3 sm:px-4 md:px-6 py-2.5 flex items-center gap-2">
                                 <button
                                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                    className="p-1.5 -ml-1.5 rounded-md hover:bg-dark-secondary/50 transition-all group"
+                                    className="p-2 -ml-2 rounded-md hover:bg-dark-secondary/50 transition-all group relative"
                                 >
-                                    <svg className="w-6 h-6 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24">
-                                        <rect x="4" y="6" width="16" height="1.5" rx="0.75" fill="currentColor" />
-                                        <rect x="4" y="11.25" width="16" height="1.5" rx="0.75" fill="currentColor" />
-                                        <rect x="4" y="16.5" width="16" height="1.5" rx="0.75" fill="currentColor" />
+                                    {/* Claude.ai exact menu icon */}
+                                    <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                                     </svg>
                                 </button>
                                 <h1 className="text-base font-medium text-text-primary">Yappy AI</h1>
