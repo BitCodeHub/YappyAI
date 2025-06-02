@@ -186,6 +186,8 @@
             const [showApiKeyModal, setShowApiKeyModal] = useState(false);
             const [showActionModal, setShowActionModal] = useState(false);
             const [selectedActionCategory, setSelectedActionCategory] = useState(null);
+            const [showFAQ, setShowFAQ] = useState(false);
+            const [expandedFAQ, setExpandedFAQ] = useState({});
             const [apiKeys, setApiKeys] = useState({
                 openai: '',
                 anthropic: '',
@@ -739,6 +741,24 @@
                             )}
                         </div>
                         
+                        {/* FAQ Section */}
+                        <div className="p-4 border-t border-dark-tertiary">
+                            <button
+                                onClick={() => setShowFAQ(!showFAQ)}
+                                className="w-full text-left p-3 rounded-lg hover:bg-dark-tertiary transition-all flex items-center justify-between group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-sm font-medium text-text-primary">Help & FAQ</span>
+                                </div>
+                                <svg className={`w-4 h-4 text-text-secondary transition-transform ${showFAQ ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                        </div>
+                        
                         {/* Profile and Logout Section */}
                         <div className="p-4 border-t border-dark-tertiary space-y-2">
                             <button
@@ -1126,6 +1146,204 @@
                                                     Save Changes
                                                 </button>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    
+                    {/* FAQ Modal */}
+                    {showFAQ && (
+                        <>
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                onClick={() => setShowFAQ(false)}
+                            ></div>
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <div className="bg-dark-secondary rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-slide-up">
+                                    <div className="p-6 border-b border-dark-tertiary flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <svg className="w-6 h-6 text-orange-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <h2 className="text-xl font-semibold text-text-primary">Help & FAQ - Multi AI Agents</h2>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowFAQ(false)}
+                                            className="p-2 rounded-lg hover:bg-dark-tertiary transition-all"
+                                        >
+                                            <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+                                        {/* FAQ Content */}
+                                        {[
+                                            {
+                                                category: "🚀 Getting Started",
+                                                items: [
+                                                    {
+                                                        q: "What is Yappy AI?",
+                                                        a: "Yappy AI is a powerful multi-agent AI assistant that combines specialized agents to help you with various tasks. Each agent has unique capabilities, from web browsing and coding to planning and research."
+                                                    },
+                                                    {
+                                                        q: "How do I use different AI agents?",
+                                                        a: "Simply type your request naturally! Our intelligent routing system automatically selects the best agent for your task. You can also specify an agent by mentioning keywords like 'search the web', 'write code', or 'plan my trip'."
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "🌐 Browser Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the Browser Agent do?",
+                                                        a: "Search real-time information, check weather, stock prices, news, find flights and hotels, compare products, search jobs, and browse any website for current data."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'What's the weather in Tokyo?'\n• 'Find cheap flights to Paris'\n• 'Search for iPhone 15 reviews'\n• 'What are today's tech news?'\n• 'Find restaurants near Times Square'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "📋 Planning Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the Planning Agent do?",
+                                                        a: "Create detailed itineraries, project plans, event schedules, study plans, business strategies, and break down complex goals into actionable steps."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'Plan a 7-day trip to Japan'\n• 'Create a study schedule for exams'\n• 'Organize a wedding timeline'\n• 'Build a 3-month fitness plan'\n• 'Design a product launch strategy'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "💻 Code Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the Code Agent do?",
+                                                        a: "Write code in any language, debug issues, optimize performance, create full applications, design databases, write automation scripts, and help with API integrations."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'Write a Python script to analyze CSV data'\n• 'Debug this JavaScript function'\n• 'Create a React component for user login'\n• 'Design a SQL database schema'\n• 'Build a REST API in Node.js'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "📂 File Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the File Agent do?",
+                                                        a: "Organize files and folders, process data files, generate reports, create templates, perform bulk operations, and manage document workflows."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'Organize my downloads folder'\n• 'Create a project folder structure'\n• 'Generate a report from these CSVs'\n• 'Batch rename files with date prefix'\n• 'Create README template'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "🔬 Research Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the Research Agent do?",
+                                                        a: "Conduct deep analysis, market research, academic literature reviews, technical documentation research, and provide comprehensive insights on complex topics."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'Research AI startup trends in 2024'\n• 'Analyze competitors in the SaaS market'\n• 'Find academic papers on machine learning'\n• 'Research best practices for microservices'\n• 'Investigate renewable energy investments'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "💬 Casual Agent",
+                                                items: [
+                                                    {
+                                                        q: "What can the Casual Agent do?",
+                                                        a: "General conversation, creative writing, explanations, brainstorming, language help, and everyday assistance with a friendly approach."
+                                                    },
+                                                    {
+                                                        q: "Example uses",
+                                                        a: "• 'Write an email to my boss'\n• 'Explain quantum computing simply'\n• 'Help me brainstorm business names'\n• 'Translate this to Spanish'\n• 'Tell me a joke'"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "🔄 Powerful Combinations",
+                                                items: [
+                                                    {
+                                                        q: "How can I use multiple agents together?",
+                                                        a: "Agents work seamlessly together! Start with one task and naturally flow to the next. The system intelligently routes between agents."
+                                                    },
+                                                    {
+                                                        q: "Example workflows",
+                                                        a: "• Start a Business: Research market → Plan strategy → Code website → Organize docs\n• Trip Planning: Search flights → Create itinerary → Research destinations\n• Job Hunt: Find openings → Research companies → Write cover letters → Track applications\n• Build an App: Plan architecture → Write code → Create documentation"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                category: "⚙️ Features & Tips",
+                                                items: [
+                                                    {
+                                                        q: "What file types can I upload?",
+                                                        a: "Images (PNG, JPG, GIF), Documents (PDF, TXT, CSV), and Code files. The AI will analyze and work with your uploaded content."
+                                                    },
+                                                    {
+                                                        q: "Pro tips for best results",
+                                                        a: "• Be specific in your requests\n• Mention the type of help you need\n• Upload relevant files for context\n• Use natural language - no special commands needed\n• Ask follow-up questions to refine results"
+                                                    }
+                                                ]
+                                            }
+                                        ].map((section, sectionIdx) => (
+                                            <div key={sectionIdx} className="mb-6">
+                                                <h3 className="text-lg font-semibold text-orange-accent mb-4">{section.category}</h3>
+                                                <div className="space-y-3">
+                                                    {section.items.map((item, itemIdx) => (
+                                                        <div 
+                                                            key={itemIdx}
+                                                            className="bg-dark-tertiary rounded-lg overflow-hidden transition-all"
+                                                        >
+                                                            <button
+                                                                onClick={() => {
+                                                                    const key = `${sectionIdx}-${itemIdx}`;
+                                                                    setExpandedFAQ(prev => ({
+                                                                        ...prev,
+                                                                        [key]: !prev[key]
+                                                                    }));
+                                                                }}
+                                                                className="w-full p-4 text-left flex items-center justify-between hover:bg-dark-bg/50 transition-all"
+                                                            >
+                                                                <span className="font-medium text-text-primary pr-4">{item.q}</span>
+                                                                <svg 
+                                                                    className={`w-5 h-5 text-text-secondary flex-shrink-0 transition-transform ${
+                                                                        expandedFAQ[`${sectionIdx}-${itemIdx}`] ? 'rotate-180' : ''
+                                                                    }`} 
+                                                                    fill="none" 
+                                                                    viewBox="0 0 24 24" 
+                                                                    stroke="currentColor"
+                                                                >
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </button>
+                                                            {expandedFAQ[`${sectionIdx}-${itemIdx}`] && (
+                                                                <div className="px-4 pb-4 text-text-secondary whitespace-pre-line">
+                                                                    {item.a}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        
+                                        <div className="mt-8 p-4 bg-orange-accent/10 rounded-lg border border-orange-accent/20">
+                                            <p className="text-sm text-text-primary">
+                                                <strong className="text-orange-accent">Need more help?</strong> Just ask me anything! I'm here to assist you with all your tasks using the power of multiple specialized AI agents.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
