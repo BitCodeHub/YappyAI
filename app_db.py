@@ -1,5 +1,5 @@
 """
-AgenticSeek AI Assistant - Fixed to match local app's agent routing
+Yappy AI Assistant - Fixed to match local app's agent routing
 Web queries go to browser agent, not casual agent
 """
 import os
@@ -1026,7 +1026,7 @@ Which option would you like to try?"""
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("AgenticSeek AI (Fixed Agent Routing) is starting up...")
+    print("Yappy AI (Fixed Agent Routing) is starting up...")
     print(f"Current date: {datetime.now().strftime('%A, %B %d, %Y')}")
     
     try:
@@ -1042,11 +1042,11 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    print("AgenticSeek is shutting down... Goodbye!")
+    print("Yappy AI is shutting down... Goodbye!")
     if database.is_connected:
         await database.disconnect()
 
-app = FastAPI(title="AgenticSeek AI Assistant", version="7.0.0", lifespan=lifespan)
+app = FastAPI(title="Yappy AI Assistant", version="7.0.0", lifespan=lifespan)
 
 # CORS configuration
 app.add_middleware(
