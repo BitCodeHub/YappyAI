@@ -811,25 +811,49 @@
                         
                         {/* Content Area */}
                         <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
-                            {/* Greeting Section - Always visible at top */}
-                            <div className="px-3 sm:px-4 md:px-6 pt-12 md:pt-16">
-                                <div className="text-center mb-8">
-                                    <div className="inline-block">
-                                        <span className="starburst mb-3 block text-2xl md:text-3xl">✦</span>
+                            {/* Conditional layout based on whether there are messages */}
+                            {messages.length === 0 ? (
+                                // Initial state - greeting and input closer together
+                                <>
+                                    {/* Greeting Section - Centered when no messages */}
+                                    <div className="flex-1 flex flex-col justify-center px-3 sm:px-4 md:px-6">
+                                        <div className="text-center mb-8 md:mb-12">
+                                            <div className="inline-block">
+                                                <span className="starburst mb-2 md:mb-4 block text-xl md:text-2xl">✦</span>
+                                            </div>
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif text-text-primary px-4">
+                                                {getGreeting()}, {username}
+                                            </h1>
+                                            {username !== 'there' && (
+                                                <p className="text-text-secondary mt-2 text-sm md:text-base">
+                                                    Welcome back to your AI assistant
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif text-text-primary px-4">
-                                        {getGreeting()}, {username}
-                                    </h1>
-                                    {username !== 'there' && (
-                                        <p className="text-text-secondary mt-3 text-base md:text-lg">
-                                            Welcome back to your AI assistant
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            {/* Messages Area - Reduced height to bring input closer */}
-                            <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 space-y-4" style={{ maxHeight: '40vh' }}>
+                                </>
+                            ) : (
+                                // Normal state - with messages
+                                <>
+                                    {/* Greeting Section - Always visible at top */}
+                                    <div className="px-3 sm:px-4 md:px-6 pt-4 md:pt-8">
+                                        <div className="text-center mb-6">
+                                            <div className="inline-block">
+                                                <span className="starburst mb-2 md:mb-4 block text-xl md:text-2xl">✦</span>
+                                            </div>
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif text-text-primary px-4">
+                                                {getGreeting()}, {username}
+                                            </h1>
+                                            {username !== 'there' && (
+                                                <p className="text-text-secondary mt-2 text-sm md:text-base">
+                                                    Welcome back to your AI assistant
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Messages Area */}
+                                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 space-y-4">
                             {messages.map(message => {
                                 if (message.type === 'system') {
                                     return (
@@ -884,10 +908,12 @@
                             )}
                             
                             <div ref={messagesEndRef} />
-                            </div>
+                                    </div>
+                                </>
+                            )}
                             
                             {/* Bottom Input Section - Fixed position */}
-                            <div className="px-3 sm:px-4 md:px-6 pb-3 md:pb-4 pt-2">
+                            <div className="px-3 sm:px-4 md:px-6 pb-4 md:pb-6">
                                 {/* Uploaded Files Display */}
                                 {uploadedFiles.length > 0 && (
                                     <div className="mb-4">
@@ -973,7 +999,7 @@
                         </div>
                         
                         {/* Action Button Row - Single Row Like Claude */}
-                        <div className="mt-3 md:mt-4 overflow-x-auto action-buttons-scroll">
+                        <div className="mt-4 md:mt-6 overflow-x-auto action-buttons-scroll">
                             <div className="flex gap-2 min-w-max px-1">
                                 {Object.keys(dropdownOptions).map(category => (
                                     <button
