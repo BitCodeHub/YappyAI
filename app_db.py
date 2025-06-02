@@ -515,7 +515,7 @@ class BrowserAgent:
 Today's date is {self.date}.
 You have searched the web and found the following results.
 Use these search results to provide accurate, current information.
-Be friendly and use dog-related expressions occasionally."""
+Be friendly and conversational."""
         
         user_prompt = f"""User question: {query}
 
@@ -555,7 +555,7 @@ class PlannerAgent:
         
         system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in planning and organizing!
 You help users plan trips, create itineraries, organize schedules, and arrange activities.
-Be detailed and ask clarifying questions when needed. Use dog-related expressions occasionally.
+Be detailed and ask clarifying questions when needed.
 Today's date is {self.date}.
 
 When helping with trip planning:
@@ -594,7 +594,7 @@ class CodeAgent:
         
         system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in coding and programming!
 You help users write code, debug programs, explain algorithms, and solve technical problems.
-Be helpful and clear in your explanations. Use dog-related expressions occasionally.
+Be helpful and clear in your explanations.
 
 When helping with code:
 1. Write clean, well-commented code
@@ -624,7 +624,7 @@ class ResearchAgent:
         
         system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in research and learning!
 You help users understand complex topics, conduct research, and learn new things.
-Be thorough, accurate, and educational. Use dog-related expressions occasionally.
+Be thorough, accurate, and educational.
 Today's date is {self.date}.
 
 When helping with research:
@@ -653,7 +653,7 @@ class FileAgent:
         
         system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in file and directory management!
 You help users find files, organize directories, and manage their file system.
-Be helpful and provide clear instructions. Use dog-related expressions occasionally.
+Be helpful and provide clear instructions.
 
 When helping with files:
 1. Provide clear file paths and commands
@@ -686,7 +686,7 @@ class CasualAgent:
             search_results = self.searx_tool.execute(query)
         
         system_prompt = f"""You are Yappy 🐕, a friendly and enthusiastic AI assistant!
-Be cheerful and helpful. Use dog-related expressions occasionally (like "Woof!" or "*wags tail*").
+Be cheerful and helpful.
 Always aim to brighten the user's day with your positive energy!
 Today's date is {self.date}.
 
@@ -792,8 +792,8 @@ class LLMHandler:
             if hasattr(self, '_user_api_keys'):
                 available_models = list(self._user_api_keys.keys()) if self._user_api_keys else []
                 if available_models:
-                    return f"Woof! 🐕 I need an API key to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key.", 0
-            return f"Woof! 🐕 I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started. *wags tail*", 0
+                    return f"I need an API key to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key.", 0
+            return f"I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started.", 0
         
         try:
             # For OpenAI, use GPT-4 Vision
@@ -882,7 +882,7 @@ class LLMHandler:
             
             else:
                 # For models without vision capability, provide helpful alternatives
-                response = f"""Woof! 🐕 I see you've uploaded an image ({file_data['name']}), but {model_name} doesn't have built-in vision capabilities. 
+                response = f"""I see you've uploaded an image ({file_data['name']}), but {model_name} doesn't have built-in vision capabilities. 
 
 Here's how you can get your image analyzed:
 
@@ -919,13 +919,13 @@ Tell me what's in the image and I'll help you with any questions about it!
             
             # Provide more helpful error messages
             if "model does not exist" in error_msg.lower():
-                return f"Woof! 🐕 The vision model isn't available. Make sure you're using a valid OpenAI API key with access to GPT-4 vision models.", 0
+                return f"The vision model isn't available. Make sure you're using a valid OpenAI API key with access to GPT-4 vision models.", 0
             elif "api key" in error_msg.lower():
-                return f"Woof! 🐕 There's an issue with your API key. Please check that it's valid and has the necessary permissions.", 0
+                return f"There's an issue with your API key. Please check that it's valid and has the necessary permissions.", 0
             elif "rate limit" in error_msg.lower():
-                return f"Woof! 🐕 You've hit the rate limit. Please wait a moment and try again.", 0
+                return f"You've hit the rate limit. Please wait a moment and try again.", 0
             else:
-                return f"Woof! 🐕 I encountered an error analyzing the image: {error_msg}", 0
+                return f"I encountered an error analyzing the image: {error_msg}", 0
     
     async def _call_llm(self, system_prompt: str, user_prompt: str, model_name: str, 
                         api_key: Optional[str], conversation_history: List[Dict] = None) -> str:
@@ -935,8 +935,8 @@ Tell me what's in the image and I'll help you with any questions about it!
             # Check if user has any API keys configured
             if hasattr(self, '_user_api_keys') and self._user_api_keys:
                 available_models = list(self._user_api_keys.keys())
-                return f"Woof! 🐕 I need an API key to help you!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key."
-            return "Woof! 🐕 I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started. *wags tail*"
+                return f"I need an API key to help you!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key."
+            return "I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started."
         
         try:
             if model_name == "openai" and openai:
@@ -1016,17 +1016,17 @@ Tell me what's in the image and I'll help you with any questions about it!
                 return response.choices[0].message.content
             
             else:
-                return f"Woof! 🐕 The {model_name} model isn't available. Try another one!"
+                return f"The {model_name} model isn't available. Try another one!"
                 
         except Exception as e:
             logger.error(f"LLM Error: {e}")
-            return f"Woof! 🐕 I encountered an error: {str(e)}"
+            return f"I encountered an error: {str(e)}"
 
 # FastAPI app setup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("🐕 Woof! Yappy AI (Fixed Agent Routing) is starting up...")
+    print("AgenticSeek AI (Fixed Agent Routing) is starting up...")
     print(f"Current date: {datetime.now().strftime('%A, %B %d, %Y')}")
     
     try:

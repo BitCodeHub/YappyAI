@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(source:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }

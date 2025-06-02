@@ -215,3 +215,4 @@ screenshots/
 api_*.log
 frontend.log
 gemini_api.log
+.claude_auto_commit
