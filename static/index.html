@@ -3,601 +3,1509 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yappy Chat - AI Assistant</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <title>Yappy - AI Agent Assistant</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React and dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f0f0f',
+                        'dark-secondary': '#1a1a1a',
+                        'dark-tertiary': '#262626',
+                        'orange-accent': '#ff6b35',
+                        'text-primary': '#ffffff',
+                        'text-secondary': '#a1a1a1',
+                    },
+                    fontFamily: {
+                        'serif': ['Georgia', 'serif'],
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f0f2f5;
-            height: 100vh;
-            overflow: hidden;
+        /* Custom styles for smooth transitions */
+        * {
+            transition: all 0.2s ease;
         }
         
-        #root {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+        /* Prevent horizontal scroll on mobile */
+        html, body {
+            overflow-x: hidden;
+            max-width: 100%;
         }
         
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
+        /* Improve touch targets on mobile */
+        @media (max-width: 768px) {
+            button, input, select, textarea {
+                min-height: 44px;
+            }
         }
         
-        .header {
-            background: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #4c51bf;
-        }
-        
-        .yappy-logo {
-            font-size: 2rem;
-            animation: wag 0.5s ease-in-out infinite alternate;
-        }
-        
-        @keyframes wag {
-            from { transform: rotate(-10deg); }
-            to { transform: rotate(10deg); }
-        }
-        
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        
-        .message {
-            display: flex;
-            gap: 1rem;
-            max-width: 70%;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .message.user {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-        }
-        
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            background: #e0e7ff;
-            flex-shrink: 0;
-        }
-        
-        .message.user .avatar {
-            background: #fef3c7;
-        }
-        
-        .bubble {
-            background: white;
-            padding: 1rem 1.5rem;
-            border-radius: 18px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            position: relative;
-        }
-        
-        .message.user .bubble {
-            background: #4c51bf;
-            color: white;
-        }
-        
-        .input-area {
-            background: white;
-            padding: 1.5rem;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .input-form {
-            display: flex;
-            gap: 1rem;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .input-field {
-            flex: 1;
-            padding: 0.75rem 1.5rem;
-            border: 2px solid #e0e7ff;
-            border-radius: 25px;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        
-        .input-field:focus {
-            border-color: #4c51bf;
-        }
-        
-        .send-btn {
-            padding: 0.75rem 2rem;
-            background: #4c51bf;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .send-btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-        
-        .send-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .login-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        
-        .login-form {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-        
-        .login-form h2 {
-            margin-bottom: 1.5rem;
-            color: #4c51bf;
-            text-align: center;
-        }
-        
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #4b5563;
-        }
-        
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
-        }
-        
-        .form-group input:focus, .form-group select:focus {
-            border-color: #4c51bf;
-        }
-        
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-        
-        .btn {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: #4c51bf;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5a67d8;
-        }
-        
-        .btn-secondary {
-            background: #e5e7eb;
-            color: #4b5563;
-        }
-        
-        .btn-secondary:hover {
-            background: #d1d5db;
-        }
-        
-        .typing {
-            display: flex;
-            gap: 0.3rem;
-            padding: 1rem;
-        }
-        
-        .typing span {
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
             width: 8px;
-            height: 8px;
-            background: #9ca3af;
-            border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
         }
         
-        .typing span:nth-child(1) { animation-delay: -0.32s; }
-        .typing span:nth-child(2) { animation-delay: -0.16s; }
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
         
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Dropdown animation */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dropdown-enter {
+            animation: slideDown 0.2s ease-out;
+        }
+        
+        /* Starburst decoration */
+        .starburst {
+            position: relative;
+            display: inline-block;
+            color: #ff6b35;
+            font-size: 1.5rem;
+        }
+        
+        .starburst::before {
+            content: '✦';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+        
+        /* Loading dots animation */
         @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
         
-        .model-selector {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: #f3f4f6;
-            border-radius: 20px;
-            font-size: 0.875rem;
+        .loading-dot {
+            animation: bounce 1.4s ease-in-out infinite;
         }
         
-        .welcome {
-            text-align: center;
-            padding: 3rem;
-            color: #6b7280;
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.16s;
         }
         
-        .welcome h2 {
-            color: #4c51bf;
-            margin-bottom: 1rem;
-            font-size: 2rem;
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.32s;
         }
         
-        .welcome .yappy-big {
-            font-size: 5rem;
-            margin-bottom: 1rem;
-            animation: bounce 2s infinite;
+        /* Remove old sidebar animations - using Tailwind transitions */
+        
+        /* Hide scrollbar for action buttons on mobile */
+        .action-buttons-scroll::-webkit-scrollbar {
+            display: none;
         }
         
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+        .action-buttons-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Modal slide up animation */
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
         }
     </style>
 </head>
-<body>
+<body class="bg-dark-bg text-text-primary min-h-screen">
     <div id="root"></div>
     
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         
-        function YappyChat() {
+        // Main App Component
+        function App() {
+            // State management
+            const [username, setUsername] = useState('there'); // Default fallback
+            const [inputValue, setInputValue] = useState('');
+            const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
             const [messages, setMessages] = useState([]);
-            const [input, setInput] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [isLoggedIn, setIsLoggedIn] = useState(false);
-            const [showLogin, setShowLogin] = useState(true);
-            const [token, setToken] = useState(localStorage.getItem('yappy_token'));
-            const [username, setUsername] = useState(localStorage.getItem('yappy_username'));
-            const [selectedModel, setSelectedModel] = useState('demo');
-            const [conversationId, setConversationId] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            const [activeDropdown, setActiveDropdown] = useState(null);
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [authToken, setAuthToken] = useState(null);
+            const [uploadedFiles, setUploadedFiles] = useState([]);
+            const [fileContext, setFileContext] = useState({});
+            const [conversationContext, setConversationContext] = useState([]);
+            const [currentAgent, setCurrentAgent] = useState(null);
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [chatHistory, setChatHistory] = useState([]);
+            const [currentChatId, setCurrentChatId] = useState(null);
+            const [showProfileSettings, setShowProfileSettings] = useState(false);
+            const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+            const [showActionModal, setShowActionModal] = useState(false);
+            const [selectedActionCategory, setSelectedActionCategory] = useState(null);
+            const [apiKeys, setApiKeys] = useState({
+                openai: '',
+                anthropic: '',
+                google: '',
+                local: ''
+            });
             
             const messagesEndRef = useRef(null);
-            const API_URL = window.location.origin;
+            const fileInputRef = useRef(null);
             
+            // Check authentication on mount
             useEffect(() => {
-                if (token) {
-                    setIsLoggedIn(true);
-                    setShowLogin(false);
+                const token = localStorage.getItem('yappy_token');
+                const savedUsername = localStorage.getItem('yappy_username');
+                const savedApiKeys = localStorage.getItem('yappy_api_keys');
+                
+                if (token && savedUsername) {
+                    setIsAuthenticated(true);
+                    setAuthToken(token);
+                    setUsername(savedUsername);
+                    loadChatHistory();
+                }
+                
+                if (savedApiKeys) {
+                    try {
+                        setApiKeys(JSON.parse(savedApiKeys));
+                    } catch (e) {
+                        console.error('Failed to load API keys:', e);
+                    }
                 }
             }, []);
             
+            // Auto scroll to bottom
             useEffect(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, [messages]);
             
-            const handleLogin = async (credentials) => {
-                try {
-                    const response = await axios.post(`${API_URL}/api/login`, credentials);
-                    const { access_token, username } = response.data;
-                    
-                    setToken(access_token);
-                    setUsername(username);
-                    setIsLoggedIn(true);
-                    setShowLogin(false);
-                    
-                    localStorage.setItem('yappy_token', access_token);
-                    localStorage.setItem('yappy_username', username);
-                } catch (error) {
-                    alert('Login failed: ' + (error.response?.data?.detail || 'Unknown error'));
+            // Load chat history from localStorage
+            const loadChatHistory = () => {
+                const saved = localStorage.getItem('yappy_chat_history');
+                if (saved) {
+                    const history = JSON.parse(saved);
+                    setChatHistory(history);
+                    // Load the most recent chat
+                    if (history.length > 0 && !currentChatId) {
+                        const latestChat = history[0];
+                        setCurrentChatId(latestChat.id);
+                        setMessages(latestChat.messages || []);
+                    }
                 }
             };
             
-            const handleSignup = async (credentials) => {
-                try {
-                    const response = await axios.post(`${API_URL}/api/signup`, credentials);
-                    const { access_token, username } = response.data;
-                    
-                    setToken(access_token);
-                    setUsername(username);
-                    setIsLoggedIn(true);
-                    setShowLogin(false);
-                    
-                    localStorage.setItem('yappy_token', access_token);
-                    localStorage.setItem('yappy_username', username);
-                } catch (error) {
-                    alert('Signup failed: ' + (error.response?.data?.detail || 'Unknown error'));
+            // Save current chat to history
+            const saveCurrentChat = () => {
+                if (messages.length === 0) return;
+                
+                const chatTitle = messages[0]?.content?.substring(0, 50) + '...' || 'New Chat';
+                const chatData = {
+                    id: currentChatId || Date.now().toString(),
+                    title: chatTitle,
+                    messages: messages,
+                    timestamp: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                let history = [...chatHistory];
+                const existingIndex = history.findIndex(chat => chat.id === chatData.id);
+                
+                if (existingIndex !== -1) {
+                    history[existingIndex] = chatData;
+                } else {
+                    history.unshift(chatData);
                 }
+                
+                // Keep only last 50 chats
+                history = history.slice(0, 50);
+                
+                setChatHistory(history);
+                localStorage.setItem('yappy_chat_history', JSON.stringify(history));
+                setCurrentChatId(chatData.id);
             };
             
-            const handleLogout = () => {
-                setToken(null);
-                setUsername(null);
-                setIsLoggedIn(false);
-                setShowLogin(true);
+            // Save chat whenever messages change
+            useEffect(() => {
+                if (messages.length > 0) {
+                    saveCurrentChat();
+                }
+            }, [messages]);
+            
+            // Start new chat
+            const startNewChat = () => {
                 setMessages([]);
-                setConversationId(null);
-                
-                localStorage.removeItem('yappy_token');
-                localStorage.removeItem('yappy_username');
+                setUploadedFiles([]);
+                setFileContext({});
+                setConversationContext([]);
+                setCurrentAgent(null);
+                setCurrentChatId(null);
+                setIsSidebarOpen(false);
             };
             
-            const sendMessage = async (e) => {
-                e.preventDefault();
-                if (!input.trim() || loading) return;
+            // Load a chat from history
+            const loadChat = (chatId) => {
+                const chat = chatHistory.find(c => c.id === chatId);
+                if (chat) {
+                    setMessages(chat.messages || []);
+                    setCurrentChatId(chatId);
+                    setIsSidebarOpen(false);
+                    // Reset file context as files aren't persisted
+                    setUploadedFiles([]);
+                    setFileContext({});
+                }
+            };
+            
+            // Delete a chat
+            const deleteChat = (chatId) => {
+                const newHistory = chatHistory.filter(chat => chat.id !== chatId);
+                setChatHistory(newHistory);
+                localStorage.setItem('yappy_chat_history', JSON.stringify(newHistory));
                 
+                if (chatId === currentChatId) {
+                    startNewChat();
+                }
+            };
+            
+            // Get greeting based on time
+            const getGreeting = () => {
+                const hour = new Date().getHours();
+                if (hour < 12) return "Good morning";
+                if (hour < 18) return "Good afternoon";
+                return "Good evening";
+            };
+            
+            // Agent mapping
+            const agentMap = {
+                'Write': 'Writing Agent',
+                'Learn': 'Research Agent',
+                'Code': 'Code Agent',
+                'Anything': 'Casual Agent'
+            };
+            
+            // Full agent names for display
+            const agentDisplayNames = {
+                'Writing Agent': 'Writing Agent',
+                'Research Agent': 'Research Agent',
+                'Code Agent': 'Code Agent',
+                'Casual Agent': 'Casual Agent',
+                'Travel Agent': 'Travel Agent',
+                'File Agent': 'File Agent',
+                'Browser Agent': 'Browser Agent'
+            };
+            
+            // Dropdown options
+            const dropdownOptions = {
+                'Write': [
+                    'Blog Post about AI',
+                    'Creative Story Starter',
+                    'Product Description for App'
+                ],
+                'Learn': [
+                    'Explain Quantum Computing',
+                    'Learn Basic Python',
+                    'What is Inflation?'
+                ],
+                'Code': [
+                    'Create a To-Do App in React',
+                    'Debug a Python Script',
+                    'Write SQL for a Join Query'
+                ],
+                'Anything': [
+                    'Give me life advice',
+                    'Plan a healthy meal',
+                    'Recommend a movie'
+                ]
+            };
+            
+            // Model options
+            const modelOptions = [
+                'Claude 3.5 Sonnet',
+                'GPT-4 Turbo',
+                'Gemini 1.5 Pro',
+                'Llama 3.1'
+            ];
+            
+            // Handle dropdown selection
+            const handleDropdownSelect = async (category, option) => {
+                setShowActionModal(false);
+                setSelectedActionCategory(null);
+                setInputValue(option);
+                
+                // Simulate sending message
+                await handleSend(option, agentMap[category]);
+            };
+            
+            // Handle action button click
+            const handleActionClick = (category) => {
+                setSelectedActionCategory(category);
+                setShowActionModal(true);
+            };
+            
+            // Handle file upload
+            const handleFileUpload = async (event) => {
+                const files = Array.from(event.target.files);
+                if (!files.length) return;
+                
+                for (const file of files) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = async (e) => {
+                        const fileData = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            content: e.target.result,
+                            id: Date.now() + Math.random()
+                        };
+                        
+                        setUploadedFiles(prev => [...prev, fileData]);
+                        setFileContext(prev => ({
+                            ...prev,
+                            [fileData.id]: fileData
+                        }));
+                        
+                        // Add message about file upload
+                        const uploadMessage = {
+                            id: Date.now(),
+                            type: 'system',
+                            content: `File uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`,
+                            timestamp: new Date(),
+                            fileId: fileData.id
+                        };
+                        
+                        setMessages(prev => [...prev, uploadMessage]);
+                    };
+                    
+                    if (file.type.includes('image')) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        reader.readAsText(file);
+                    }
+                }
+                
+                // Clear the input
+                event.target.value = '';
+            };
+            
+            // Handle send message
+            const handleSend = async (messageText = inputValue, agentType = null, attachedFile = null) => {
+                if (!messageText.trim()) return;
+                
+                // Add user message
                 const userMessage = {
                     id: Date.now(),
-                    text: input,
-                    sender: 'user',
-                    timestamp: new Date().toISOString()
+                    type: 'user',
+                    content: messageText,
+                    timestamp: new Date(),
+                    attachedFile: attachedFile
                 };
                 
                 setMessages(prev => [...prev, userMessage]);
-                setInput('');
-                setLoading(true);
+                setInputValue('');
+                setIsLoading(true);
                 
                 try {
-                    const response = await axios.post(
-                        `${API_URL}/api/chat`,
-                        {
-                            message: input,
-                            model_name: selectedModel,
-                            conversation_id: conversationId
-                        },
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
+                    // Determine which agent to use
+                    let agent = agentType;
+                    
+                    // If this is a follow-up question and we have a current agent, use it
+                    if (!agent && currentAgent && conversationContext.length > 0) {
+                        agent = currentAgent;
+                    }
+                    
+                    if (!agent) {
+                        // Check if message references uploaded files
+                        const lowerMessage = messageText.toLowerCase();
+                        const hasFileReference = uploadedFiles.some(file => 
+                            lowerMessage.includes(file.name.toLowerCase()) || 
+                            lowerMessage.includes('file') || 
+                            lowerMessage.includes('document') ||
+                            lowerMessage.includes('image') ||
+                            lowerMessage.includes('uploaded')
+                        );
+                        
+                        if (hasFileReference && uploadedFiles.length > 0) {
+                            // Route based on file type if referencing files
+                            const referencedFile = uploadedFiles[uploadedFiles.length - 1];
+                            if (referencedFile) {
+                                if (referencedFile.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c|go|rs|sql)$/i)) {
+                                    agent = 'Code Agent';
+                                } else if (referencedFile.type.includes('image')) {
+                                    agent = 'Casual Agent';
+                                } else if (referencedFile.name.match(/\.(txt|md|doc|docx)$/i)) {
+                                    agent = 'Writing Agent';
+                                } else if (referencedFile.name.match(/\.(csv|json|xml)$/i)) {
+                                    agent = 'Research Agent';
+                                } else {
+                                    agent = 'File Agent';
+                                }
+                            }
+                        } else {
+                            // Standard routing - check for keywords
+                            if (lowerMessage.includes('travel') || lowerMessage.includes('trip') || lowerMessage.includes('vacation') || 
+                                lowerMessage.includes('flight') || lowerMessage.includes('hotel') || lowerMessage.includes('visit') ||
+                                lowerMessage.includes('tourism') || lowerMessage.includes('destination') || lowerMessage.includes('planning a trip') ||
+                                lowerMessage.includes('plan a trip') || lowerMessage.includes('going to') || lowerMessage.includes('journey')) {
+                                agent = 'Travel Agent';
+                            } else if (lowerMessage.includes('write') || lowerMessage.includes('blog') || lowerMessage.includes('story') ||
+                                      lowerMessage.includes('essay') || lowerMessage.includes('article') || lowerMessage.includes('draft')) {
+                                agent = 'Writing Agent';
+                            } else if (lowerMessage.includes('learn') || lowerMessage.includes('explain') || lowerMessage.includes('what is') ||
+                                      lowerMessage.includes('how does') || lowerMessage.includes('teach') || lowerMessage.includes('understand')) {
+                                agent = 'Research Agent';
+                            } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('sql') || 
+                                      lowerMessage.includes('program') || lowerMessage.includes('function') || lowerMessage.includes('algorithm') ||
+                                      lowerMessage.includes('script') || lowerMessage.includes('develop')) {
+                                agent = 'Code Agent';
+                            } else if (lowerMessage.includes('browse') || lowerMessage.includes('search') || lowerMessage.includes('find online') ||
+                                      lowerMessage.includes('website') || lowerMessage.includes('google')) {
+                                agent = 'Browser Agent';
+                            } else {
+                                agent = 'Casual Agent';
                             }
                         }
-                    );
+                    }
                     
-                    const botMessage = {
-                        id: Date.now() + 1,
-                        text: response.data.response,
-                        sender: 'bot',
-                        timestamp: response.data.timestamp
-                    };
+                    // Only show routing message if switching to a different agent
+                    if (agent !== currentAgent || !currentAgent) {
+                        const routingMessage = {
+                            id: Date.now() + 0.5,
+                            type: 'system',
+                            content: `Routing you to ${agent}...`,
+                            timestamp: new Date()
+                        };
+                        setMessages(prev => [...prev, routingMessage]);
+                    }
                     
-                    setMessages(prev => [...prev, botMessage]);
-                    setConversationId(response.data.conversation_id);
+                    // Set current agent for follow-up questions
+                    setCurrentAgent(agent);
+                    
+                    // If authenticated, make real API call
+                    if (isAuthenticated && authToken) {
+                        const payload = {
+                            message: messageText,
+                            model_name: 'google', // Default to Google since we're focusing on Gemini
+                            api_keys: apiKeys // Include API keys in the request
+                        };
+                        
+                        // Include file context if available
+                        if (attachedFile) {
+                            payload.file_context = {
+                                name: attachedFile.name,
+                                type: attachedFile.type,
+                                content: attachedFile.content
+                            };
+                        } else if (uploadedFiles.length > 0) {
+                            // Include all uploaded files as context
+                            payload.uploaded_files = uploadedFiles.map(f => ({
+                                name: f.name,
+                                type: f.type,
+                                content: f.content.substring(0, 10000) // Limit content size
+                            }));
+                        }
+                        
+                        const response = await axios.post('/api/chat', payload, {
+                            headers: { Authorization: `Bearer ${authToken}` }
+                        });
+                        
+                        const aiMessage = {
+                            id: Date.now() + 1,
+                            type: 'ai',
+                            agent: agentDisplayNames[response.data.agent_used] || agentDisplayNames[agent] || agent,
+                            content: response.data.response,
+                            timestamp: new Date()
+                        };
+                        
+                        setMessages(prev => [...prev, aiMessage]);
+                        
+                        // Update conversation context for follow-ups
+                        setConversationContext(prev => [...prev, {
+                            user: messageText,
+                            ai: response.data.response,
+                            agent: agent
+                        }]);
+                    } else {
+                        // Simulate response
+                        await simulateAgentResponse(agent, messageText, attachedFile);
+                    }
                 } catch (error) {
                     console.error('Error:', error);
                     const errorMessage = {
                         id: Date.now() + 1,
-                        text: "Woof! 🐕 Sorry, I encountered an error. Please try again!",
-                        sender: 'bot',
-                        timestamp: new Date().toISOString()
+                        type: 'ai',
+                        agent: 'System',
+                        content: 'Sorry, I encountered an error. Please make sure you are logged in and have configured your API keys.',
+                        timestamp: new Date()
                     };
                     setMessages(prev => [...prev, errorMessage]);
                 } finally {
-                    setLoading(false);
+                    setIsLoading(false);
+                }
+            };
+            
+            // Simulate agent response
+            const simulateAgentResponse = async (agent, message, attachedFile) => {
+                // Simulate thinking delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Mock responses based on agent type and file context
+                let response = '';
+                
+                if (attachedFile) {
+                    // File-specific responses
+                    if (attachedFile.type.includes('image')) {
+                        response = `I can see you've uploaded an image file "${attachedFile.name}". As a simulated response, I would analyze this image and describe its contents, identify objects, text, or patterns within it. The image appears to be ${(attachedFile.size / 1024).toFixed(2)} KB in size.`;
+                    } else if (attachedFile.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c|go|rs|sql)$/i)) {
+                        response = `I've analyzed the code file "${attachedFile.name}".\n\nThis appears to be a ${attachedFile.name.split('.').pop().toUpperCase()} file. I would review the code structure, identify potential improvements, check for bugs, and suggest optimizations. The file is ${(attachedFile.size / 1024).toFixed(2)} KB in size.`;
+                    } else if (attachedFile.name.match(/\.(txt|md|doc|docx)$/i)) {
+                        response = `I've reviewed the document "${attachedFile.name}".\n\nBased on the content, I would provide a summary of the main points, identify key themes, and offer insights about the document's purpose and structure. The document is ${(attachedFile.size / 1024).toFixed(2)} KB in size.`;
+                    } else if (attachedFile.name.match(/\.(csv|json|xml)$/i)) {
+                        response = `I've analyzed the data file "${attachedFile.name}".\n\nThis appears to be structured data in ${attachedFile.name.split('.').pop().toUpperCase()} format. I would examine the data structure, identify patterns, provide statistics, and suggest potential uses for this data. The file contains ${(attachedFile.size / 1024).toFixed(2)} KB of data.`;
+                    } else {
+                        response = `I've received the file "${attachedFile.name}" (${attachedFile.type || 'unknown type'}). I would analyze its contents and provide relevant insights based on the file type and content. The file is ${(attachedFile.size / 1024).toFixed(2)} KB in size.`;
+                    }
+                } else {
+                    // Standard responses based on agent type
+                    const responses = {
+                        'Writing Agent': `I'll help you write that. Here's a creative start:\n\n"In the age of artificial intelligence, we stand at the crossroads of innovation and imagination. Every line of code written today shapes tomorrow's reality..."`,
+                        'Research Agent': `Let me explain that for you:\n\nThe concept you're asking about is fascinating. It involves understanding the fundamental principles that govern how systems interact and evolve over time. Here are the key points to understand...`,
+                        'Code Agent': `Here's a solution for your coding request:\n\n\`\`\`javascript\nfunction TodoApp() {\n  const [todos, setTodos] = useState([]);\n  \n  const addTodo = (text) => {\n    setTodos([...todos, { id: Date.now(), text, done: false }]);\n  };\n  \n  return (\n    <div>\n      {/* Todo implementation */}\n    </div>\n  );\n}\n\`\`\``,
+                        'Casual Agent': `I'd be happy to help with that!\n\nBased on what you're asking, here's my thoughtful response: Life is a journey of continuous learning and growth. Whether you're planning a meal, seeking advice, or exploring new ideas, the key is to approach each moment with curiosity and openness.`,
+                        'Travel Agent': `I'll help you plan your travel!\n\nBased on your request, let me suggest some amazing destinations and travel tips. Whether you're looking for adventure, relaxation, or cultural experiences, I can help you create the perfect itinerary.`,
+                        'File Agent': `I'll analyze your file for you.\n\nBased on the file type and content, I can help you understand its structure, extract information, or perform specific operations on it.`,
+                        'Browser Agent': `I'll help you navigate the web and find what you're looking for.\n\nI can search for information, fill out forms, or interact with websites on your behalf.`
+                    };
+                    
+                    response = responses[agent] || 'I understand your request. Let me help you with that...';
+                }
+                
+                const aiMessage = {
+                    id: Date.now() + 1,
+                    type: 'ai',
+                    agent: agentDisplayNames[agent] || agent,
+                    content: response,
+                    timestamp: new Date()
+                };
+                
+                setMessages(prev => [...prev, aiMessage]);
+                
+                // Update conversation context for follow-ups
+                setConversationContext(prev => [...prev, {
+                    user: message,
+                    ai: response,
+                    agent: agent
+                }]);
+            };
+            
+            // Handle key press
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+            
+            // Authentication Component
+            if (!isAuthenticated) {
+                return <AuthComponent onLogin={(token, username) => {
+                    setIsAuthenticated(true);
+                    setAuthToken(token);
+                    setUsername(username);
+                    localStorage.setItem('yappy_token', token);
+                    localStorage.setItem('yappy_username', username);
+                }} />;
+            }
+            
+            return (
+                <div className="min-h-screen bg-dark-bg flex relative">
+                    {/* Sidebar Overlay */}
+                    <div 
+                        className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${isSidebarOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+                    
+                    {/* Sidebar */}
+                    <div className={`fixed left-0 md:left-16 top-0 h-full w-80 bg-dark-secondary z-50 transform transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        {/* Sidebar Header with Close Button */}
+                        <div className="p-4 border-b border-dark-tertiary flex items-center gap-3">
+                            <button
+                                onClick={() => setIsSidebarOpen(false)}
+                                className="p-2 -ml-2 rounded-md hover:bg-dark-tertiary/50 transition-all group"
+                            >
+                                {/* Same icon as header for consistency */}
+                                <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                </svg>
+                            </button>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">✦</span>
+                                <h1 className="text-base font-medium text-text-primary">Yappy AI</h1>
+                            </div>
+                        </div>
+                        
+                        {/* New Chat Button */}
+                        <div className="p-4">
+                            <button
+                                onClick={startNewChat}
+                                className="w-full bg-orange-accent hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                New Chat
+                            </button>
+                        </div>
+                        
+                        {/* Chat History */}
+                        <div className="px-4 pb-4 flex-1 overflow-y-auto">
+                            <h3 className="text-sm text-text-secondary font-medium mb-3">Chat History</h3>
+                            {chatHistory.length === 0 ? (
+                                <p className="text-text-secondary text-sm">No previous chats</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {chatHistory.map(chat => (
+                                        <div 
+                                            key={chat.id}
+                                            className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
+                                                chat.id === currentChatId 
+                                                    ? 'bg-dark-tertiary text-text-primary' 
+                                                    : 'hover:bg-dark-tertiary/50 text-text-secondary hover:text-text-primary'
+                                            }`}
+                                            onClick={() => loadChat(chat.id)}
+                                        >
+                                            <div className="pr-8">
+                                                <div className="text-sm font-medium truncate">{chat.title}</div>
+                                                <div className="text-xs opacity-60 mt-1">
+                                                    {new Date(chat.lastUpdated).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteChat(chat.id);
+                                                }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-text-secondary hover:text-red-400 p-1 transition-all"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Profile and Logout Section */}
+                        <div className="p-4 border-t border-dark-tertiary space-y-2">
+                            <button
+                                onClick={() => {
+                                    setShowProfileSettings(true);
+                                    setIsSidebarOpen(false);
+                                }}
+                                className="w-full text-left p-3 rounded-lg hover:bg-dark-tertiary transition-all flex items-center gap-3"
+                            >
+                                <div className="w-8 h-8 bg-orange-accent rounded-full flex items-center justify-center text-white font-medium">
+                                    {username.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-medium text-text-primary">{username}</div>
+                                    <div className="text-xs text-text-secondary">Profile Settings</div>
+                                </div>
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    if (confirm('Are you sure you want to logout?')) {
+                                        localStorage.removeItem('yappy_token');
+                                        localStorage.removeItem('yappy_username');
+                                        setIsAuthenticated(false);
+                                        setAuthToken(null);
+                                        setUsername('there');
+                                        setMessages([]);
+                                        setChatHistory([]);
+                                        setIsSidebarOpen(false);
+                                    }
+                                }}
+                                className="w-full text-left p-3 rounded-lg hover:bg-dark-tertiary transition-all flex items-center gap-3 text-red-400 hover:text-red-300"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                <span className="text-sm font-medium">Logout</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Fixed Left Sidebar for Menu Button - Claude.ai Style */}
+                    <div className="hidden md:flex w-16 bg-dark-bg border-r border-dark-tertiary/50 flex-col items-center py-4 fixed left-0 top-0 h-full z-30">
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="p-2 rounded-md hover:bg-dark-secondary/50 transition-all group relative"
+                            title="Open menu"
+                        >
+                            <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    {/* Main Container */}
+                    <div className="flex-1 w-full flex flex-col md:ml-16">
+                        {/* Mobile Header with Menu Button */}
+                        <header className="bg-dark-bg border-b border-dark-tertiary/50 sticky top-0 z-30 md:hidden">
+                            <div className="px-3 py-2.5 flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                    className="p-2 -ml-2 rounded-md hover:bg-dark-secondary/50 transition-all group relative"
+                                >
+                                    <svg className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                    </svg>
+                                </button>
+                                <h1 className="text-base font-medium text-text-primary">Yappy AI</h1>
+                            </div>
+                        </header>
+                        
+                        {/* Content Area */}
+                        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-0 md:px-6">
+                            {/* Conditional layout based on whether there are messages */}
+                            {messages.length === 0 ? (
+                                // Initial state - greeting and input closer together
+                                <>
+                                    {/* Greeting Section - Centered when no messages */}
+                                    <div className="flex-1 flex flex-col justify-center px-3 sm:px-4 md:px-6">
+                                        <div className="text-center mb-4 md:mb-6">
+                                            <div className="inline-block">
+                                                <span className="starburst mb-2 md:mb-4 block text-xl md:text-2xl">✦</span>
+                                            </div>
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif text-text-primary px-4">
+                                                {getGreeting()}, {username}
+                                            </h1>
+                                            {username !== 'there' && (
+                                                <p className="text-text-secondary mt-2 text-sm md:text-base">
+                                                    Welcome back to your AI assistant
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                // Normal state - with messages
+                                <>
+                                    {/* Greeting Section - Always visible at top */}
+                                    <div className="px-3 sm:px-4 md:px-6 pt-4 md:pt-8">
+                                        <div className="text-center mb-6">
+                                            <div className="inline-block">
+                                                <span className="starburst mb-2 md:mb-4 block text-xl md:text-2xl">✦</span>
+                                            </div>
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif text-text-primary px-4">
+                                                {getGreeting()}, {username}
+                                            </h1>
+                                            {username !== 'there' && (
+                                                <p className="text-text-secondary mt-2 text-sm md:text-base">
+                                                    Welcome back to your AI assistant
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Messages Area */}
+                                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 space-y-4">
+                            {messages.map(message => {
+                                if (message.type === 'system') {
+                                    return (
+                                        <div key={message.id} className="flex justify-center">
+                                            <div className="text-xs md:text-sm text-text-secondary italic">
+                                                {message.content}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                
+                                return (
+                                    <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] md:max-w-3xl px-3 md:px-4 py-2 md:py-3 rounded-lg ${
+                                            message.type === 'user' 
+                                                ? 'bg-dark-tertiary text-text-primary' 
+                                                : 'bg-dark-secondary text-text-primary'
+                                        }`}>
+                                            {message.type === 'ai' && (
+                                                <div className="text-orange-accent text-xs md:text-sm font-medium mb-1">
+                                                    [{message.agent}]
+                                                </div>
+                                            )}
+                                            <div className="whitespace-pre-wrap text-sm md:text-base">{message.content}</div>
+                                            {/* Show attached file preview if it's an image */}
+                                            {message.attachedFile && message.attachedFile.type.includes('image') && (
+                                                <div className="mt-2">
+                                                    <img 
+                                                        src={message.attachedFile.content} 
+                                                        alt={message.attachedFile.name}
+                                                        className="max-w-full rounded-lg"
+                                                        style={{ maxHeight: '300px' }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            
+                            {/* Loading indicator */}
+                            {isLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-dark-secondary px-4 py-3 rounded-lg">
+                                        <div className="flex space-x-2">
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                            <div className="w-2 h-2 bg-text-secondary rounded-full loading-dot"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div ref={messagesEndRef} />
+                                    </div>
+                                </>
+                            )}
+                            
+                            {/* Bottom Input Section - Fixed position */}
+                            <div className="px-3 sm:px-4 md:px-6 pb-2 md:pb-3 mt-auto">
+                                {/* Uploaded Files Display */}
+                                {uploadedFiles.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="text-xs text-text-secondary mb-2">Uploaded Files:</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {uploadedFiles.map(file => (
+                                                <div key={file.id} className="bg-dark-secondary px-3 py-1 rounded-full text-xs text-text-primary flex items-center gap-2">
+                                                    <span>{file.name}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setUploadedFiles(prev => prev.filter(f => f.id !== file.id));
+                                                            setFileContext(prev => {
+                                                                const newContext = { ...prev };
+                                                                delete newContext[file.id];
+                                                                return newContext;
+                                                            });
+                                                        }}
+                                                        className="text-text-secondary hover:text-red-400 transition-colors"
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Input Section */}
+                                <div className="bg-dark-secondary rounded-xl shadow-lg p-3 md:p-4">
+                                    <div className="flex items-center gap-2">
+                                        {/* Left Icons - Now visible on all devices */}
+                                        <div className="flex items-center">
+                                            {/* Hidden file input */}
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                multiple
+                                                onChange={handleFileUpload}
+                                                className="hidden"
+                                                accept="*/*"
+                                            />
+                                            
+                                            {/* File Upload Button (Plus) */}
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-text-secondary hover:text-text-primary p-1.5 md:p-2 transition-colors"
+                                                title="Upload file"
+                                            >
+                                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Input Field */}
+                                        <input
+                                            type="text"
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyPress={handleKeyPress}
+                                            placeholder="How can I help you today?"
+                                            className="flex-1 bg-transparent text-text-primary placeholder-text-secondary outline-none text-sm md:text-base"
+                                            disabled={isLoading}
+                                        />
+                                        
+                                        {/* Send Button - Smaller on mobile */}
+                                        <button
+                                            onClick={() => handleSend()}
+                                            disabled={isLoading || !inputValue.trim()}
+                                            className="bg-orange-accent hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full p-1.5 md:p-2 transition-all flex-shrink-0"
+                                        >
+                                            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Action Buttons - Below input */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                        {Object.keys(dropdownOptions).map(category => (
+                                            <button
+                                                key={category}
+                                                onClick={() => handleActionClick(category)}
+                                                className="bg-dark-tertiary hover:bg-dark-tertiary/70 text-text-primary py-2 px-3 rounded-lg transition-all text-xs md:text-sm flex items-center justify-center gap-1.5"
+                                            >
+                                                {category === 'Write' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Learn' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Code' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Anything' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                                    </svg>
+                                                )}
+                                                <span className="text-xs md:text-sm">{category}</span>
+                                                <svg className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Profile Settings Modal */}
+                    {showProfileSettings && (
+                        <>
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                onClick={() => setShowProfileSettings(false)}
+                            />
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <div className="bg-dark-secondary rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                                    <div className="p-6">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h2 className="text-xl font-semibold text-text-primary">Profile Settings</h2>
+                                            <button
+                                                onClick={() => setShowProfileSettings(false)}
+                                                className="text-text-secondary hover:text-text-primary p-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Profile Info */}
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-16 h-16 bg-orange-accent rounded-full flex items-center justify-center text-white text-2xl font-medium">
+                                                    {username.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-medium text-text-primary">{username}</h3>
+                                                    <p className="text-sm text-text-secondary">Free Plan</p>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Settings Sections */}
+                                            <div className="space-y-4">
+                                                <div className="border-t border-dark-tertiary pt-4">
+                                                    <h4 className="text-sm font-medium text-text-primary mb-3">Preferences</h4>
+                                                    <div className="space-y-3">
+                                                        <label className="flex items-center justify-between">
+                                                            <span className="text-sm text-text-secondary">Email Notifications</span>
+                                                            <input type="checkbox" className="w-4 h-4" />
+                                                        </label>
+                                                        <label className="flex items-center justify-between">
+                                                            <span className="text-sm text-text-secondary">Sound Effects</span>
+                                                            <input type="checkbox" className="w-4 h-4" />
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="border-t border-dark-tertiary pt-4">
+                                                    <h4 className="text-sm font-medium text-text-primary mb-3">API Keys</h4>
+                                                    <p className="text-sm text-text-secondary">Configure your API keys for different providers</p>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setShowApiKeyModal(true);
+                                                            setShowProfileSettings(false);
+                                                        }}
+                                                        className="mt-2 text-orange-accent hover:text-orange-600 text-sm"
+                                                    >
+                                                        Manage API Keys →
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="border-t border-dark-tertiary pt-4">
+                                                    <h4 className="text-sm font-medium text-text-primary mb-3">Data & Privacy</h4>
+                                                    <button 
+                                                        onClick={() => {
+                                                            // Download chat history as JSON
+                                                            const dataStr = JSON.stringify({
+                                                                username: username,
+                                                                chatHistory: chatHistory,
+                                                                exportDate: new Date().toISOString()
+                                                            }, null, 2);
+                                                            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                                                            const exportFileDefaultName = `yappy_data_${username}_${new Date().toISOString().split('T')[0]}.json`;
+                                                            
+                                                            const linkElement = document.createElement('a');
+                                                            linkElement.setAttribute('href', dataUri);
+                                                            linkElement.setAttribute('download', exportFileDefaultName);
+                                                            linkElement.click();
+                                                        }}
+                                                        className="text-sm text-text-secondary hover:text-text-primary"
+                                                    >
+                                                        Download your data
+                                                    </button>
+                                                    <br />
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                                                                // Clear all data
+                                                                localStorage.clear();
+                                                                setIsAuthenticated(false);
+                                                                setAuthToken(null);
+                                                                setUsername('there');
+                                                                setMessages([]);
+                                                                setChatHistory([]);
+                                                                setShowProfileSettings(false);
+                                                            }
+                                                        }}
+                                                        className="text-sm text-red-400 hover:text-red-300 mt-2"
+                                                    >
+                                                        Delete account
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Action Buttons */}
+                                            <div className="flex gap-3 pt-4">
+                                                <button
+                                                    onClick={() => setShowProfileSettings(false)}
+                                                    className="flex-1 bg-dark-tertiary hover:bg-dark-bg text-text-primary py-2 px-4 rounded-lg transition-all"
+                                                >
+                                                    Close
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        // Save settings logic here
+                                                        setShowProfileSettings(false);
+                                                    }}
+                                                    className="flex-1 bg-orange-accent hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-all"
+                                                >
+                                                    Save Changes
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    
+                    {/* API Key Management Modal */}
+                    {showApiKeyModal && (
+                        <>
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                onClick={() => setShowApiKeyModal(false)}
+                            />
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <div className="bg-dark-secondary rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                                    <div className="p-6">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h2 className="text-xl font-semibold text-text-primary">API Key Management</h2>
+                                            <button
+                                                onClick={() => setShowApiKeyModal(false)}
+                                                className="text-text-secondary hover:text-text-primary p-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="space-y-6">
+                                            <p className="text-sm text-text-secondary">
+                                                Configure your API keys to use different AI providers. Your keys are stored locally and never sent to our servers.
+                                            </p>
+                                            
+                                            {/* OpenAI */}
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-text-primary">
+                                                    OpenAI API Key
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    value={apiKeys.openai}
+                                                    onChange={(e) => setApiKeys(prev => ({ ...prev, openai: e.target.value }))}
+                                                    placeholder="sk-..."
+                                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                                />
+                                                <p className="text-xs text-text-secondary">Get your key from platform.openai.com</p>
+                                            </div>
+                                            
+                                            {/* Anthropic */}
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-text-primary">
+                                                    Anthropic API Key (Claude)
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    value={apiKeys.anthropic}
+                                                    onChange={(e) => setApiKeys(prev => ({ ...prev, anthropic: e.target.value }))}
+                                                    placeholder="sk-ant-..."
+                                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                                />
+                                                <p className="text-xs text-text-secondary">Get your key from console.anthropic.com</p>
+                                            </div>
+                                            
+                                            {/* Google */}
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-text-primary">
+                                                    Google API Key (Gemini)
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    value={apiKeys.google}
+                                                    onChange={(e) => setApiKeys(prev => ({ ...prev, google: e.target.value }))}
+                                                    placeholder="AIza..."
+                                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                                />
+                                                <p className="text-xs text-text-secondary">Get your key from makersuite.google.com</p>
+                                            </div>
+                                            
+                                            {/* Local LLM */}
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-text-primary">
+                                                    Local LLM Endpoint
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={apiKeys.local}
+                                                    onChange={(e) => setApiKeys(prev => ({ ...prev, local: e.target.value }))}
+                                                    placeholder="http://localhost:11434"
+                                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-2 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                                />
+                                                <p className="text-xs text-text-secondary">For Ollama, LM Studio, or other local models</p>
+                                            </div>
+                                            
+                                            {/* Action Buttons */}
+                                            <div className="flex gap-3 pt-4">
+                                                <button
+                                                    onClick={() => setShowApiKeyModal(false)}
+                                                    className="flex-1 bg-dark-tertiary hover:bg-dark-bg text-text-primary py-2 px-4 rounded-lg transition-all"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        // Save API keys to localStorage
+                                                        localStorage.setItem('yappy_api_keys', JSON.stringify(apiKeys));
+                                                        setShowApiKeyModal(false);
+                                                        alert('API keys saved successfully!');
+                                                    }}
+                                                    className="flex-1 bg-orange-accent hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-all"
+                                                >
+                                                    Save API Keys
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    
+                    {/* Action Suggestions Modal */}
+                    {showActionModal && selectedActionCategory && (
+                        <>
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                onClick={() => {
+                                    setShowActionModal(false);
+                                    setSelectedActionCategory(null);
+                                }}
+                            />
+                            <div 
+                                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+                                onClick={() => {
+                                    setShowActionModal(false);
+                                    setSelectedActionCategory(null);
+                                }}
+                            >
+                                <div 
+                                    className="bg-dark-secondary rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-lg max-h-[80vh] overflow-hidden animate-slide-up"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="p-4 sm:p-6">
+                                        {/* Modal Header */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                {selectedActionCategory === 'Write' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Learn' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Code' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Anything' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-text-primary">{selectedActionCategory}</h3>
+                                                    <p className="text-sm text-text-secondary">Choose a suggestion</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Suggestions List */}
+                                        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                                            {dropdownOptions[selectedActionCategory]?.map(option => (
+                                                <button
+                                                    key={option}
+                                                    onClick={() => handleDropdownSelect(selectedActionCategory, option)}
+                                                    className="w-full text-left p-4 bg-dark-tertiary hover:bg-dark-bg rounded-lg transition-all group"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-text-primary group-hover:text-orange-accent transition-colors">
+                                                            {option}
+                                                        </span>
+                                                        <svg className="w-4 h-4 text-text-secondary group-hover:text-orange-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                        </svg>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
+        
+        // Authentication Component
+        function AuthComponent({ onLogin }) {
+            const [isLogin, setIsLogin] = useState(true);
+            const [username, setUsername] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setIsLoading(true);
+                
+                try {
+                    const endpoint = isLogin ? '/auth/login' : '/auth/register';
+                    const payload = isLogin 
+                        ? { username, password }
+                        : { username, email, password };
+                    
+                    const response = await axios.post(endpoint, payload);
+                    
+                    if (response.data.access_token) {
+                        // Pass both token and username to parent component
+                        onLogin(response.data.access_token, response.data.username || username);
+                    }
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'An error occurred');
+                } finally {
+                    setIsLoading(false);
                 }
             };
             
             return (
-                <div className="chat-container">
-                    <header className="header">
-                        <div className="logo">
-                            <span className="yappy-logo">🐕</span>
-                            <span>Yappy Chat</span>
+                <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">
+                    <div className="max-w-md w-full">
+                        <div className="text-center mb-8">
+                            <span className="starburst mb-4 block">✦</span>
+                            <h1 className="text-3xl font-serif text-text-primary mb-2">
+                                Welcome to Yappy
+                            </h1>
+                            <p className="text-text-secondary">
+                                {isLogin ? 'Sign in to continue' : 'Create your account'}
+                            </p>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div className="model-selector">
-                                <label>Model:</label>
-                                <select 
-                                    value={selectedModel} 
-                                    onChange={(e) => setSelectedModel(e.target.value)}
-                                    style={{ border: 'none', background: 'transparent', outline: 'none' }}
-                                >
-                                    <option value="demo">Demo</option>
-                                    <option value="openai">OpenAI</option>
-                                    <option value="anthropic">Anthropic</option>
-                                    <option value="google">Google</option>
-                                    <option value="groq">Groq</option>
-                                </select>
-                            </div>
-                            {isLoggedIn && (
-                                <button onClick={handleLogout} className="btn btn-secondary">
-                                    Logout ({username})
-                                </button>
+                        
+                        <form onSubmit={handleSubmit} className="bg-dark-secondary rounded-xl p-6 space-y-4">
+                            {error && (
+                                <div className="bg-red-900/20 border border-red-700 text-red-400 px-4 py-2 rounded-lg text-sm">
+                                    {error}
+                                </div>
                             )}
-                        </div>
-                    </header>
-                    
-                    <div className="messages">
-                        {messages.length === 0 ? (
-                            <div className="welcome">
-                                <div className="yappy-big">🐕</div>
-                                <h2>Woof! Welcome to Yappy Chat!</h2>
-                                <p>I'm your friendly AI assistant. Ask me anything!</p>
-                            </div>
-                        ) : (
-                            messages.map(msg => (
-                                <div key={msg.id} className={`message ${msg.sender}`}>
-                                    <div className="avatar">
-                                        {msg.sender === 'user' ? '👤' : '🐕'}
-                                    </div>
-                                    <div className="bubble">
-                                        {msg.text}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                        {loading && (
-                            <div className="message bot">
-                                <div className="avatar">🐕</div>
-                                <div className="bubble">
-                                    <div className="typing">
-                                        <span></span>
-                                        <span></span>
-                                        <span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                    </div>
-                    
-                    <div className="input-area">
-                        <form onSubmit={sendMessage} className="input-form">
+                            
                             <input
                                 type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Type your message..."
-                                className="input-field"
-                                disabled={!isLoggedIn || loading}
+                                placeholder="Username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                required
                             />
-                            <button 
-                                type="submit" 
-                                className="send-btn"
-                                disabled={!isLoggedIn || loading || !input.trim()}
+                            
+                            {!isLogin && (
+                                <input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                    required
+                                />
+                            )}
+                            
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-dark-tertiary text-text-primary px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-orange-accent"
+                                required
+                            />
+                            
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-orange-accent hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-lg font-medium transition-all"
                             >
-                                Send
+                                {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
                             </button>
-                        </form>
-                    </div>
-                    
-                    {showLogin && <LoginModal onLogin={handleLogin} onSignup={handleSignup} />}
-                </div>
-            );
-        }
-        
-        function LoginModal({ onLogin, onSignup }) {
-            const [isSignup, setIsSignup] = useState(false);
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
-            const [email, setEmail] = useState('');
-            
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                const credentials = { username, password };
-                if (isSignup) {
-                    credentials.email = email || `${username}@example.com`;
-                    onSignup(credentials);
-                } else {
-                    onLogin(credentials);
-                }
-            };
-            
-            return (
-                <div className="login-modal">
-                    <div className="login-form">
-                        <h2>{isSignup ? 'Sign Up for Yappy' : 'Login to Yappy'}</h2>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Username</label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    required
-                                />
+                            
+                            <div className="text-center text-text-secondary text-sm">
+                                {isLogin ? (
+                                    <>
+                                        Don't have an account?{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsLogin(false);
+                                                setError('');
+                                            }}
+                                            className="text-orange-accent hover:text-orange-600"
+                                        >
+                                            Sign up
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        Already have an account?{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsLogin(true);
+                                                setError('');
+                                            }}
+                                            className="text-orange-accent hover:text-orange-600"
+                                        >
+                                            Sign in
+                                        </button>
+                                    </>
+                                )}
                             </div>
-                            <div className="form-group">
-                                <label>Password</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            {isSignup && (
-                                <div className="form-group">
-                                    <label>Email (optional)</label>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
+                            
+                            {isLogin && (
+                                <div className="mt-4 p-3 bg-dark-tertiary rounded-lg text-xs text-text-secondary">
+                                    <strong>Demo Account:</strong><br />
+                                    Username: admin<br />
+                                    Password: yappy123
                                 </div>
                             )}
-                            <div className="form-actions">
-                                <button type="submit" className="btn btn-primary">
-                                    {isSignup ? 'Sign Up' : 'Login'}
-                                </button>
-                                <button 
-                                    type="button" 
-                                    className="btn btn-secondary"
-                                    onClick={() => setIsSignup(!isSignup)}
-                                >
-                                    {isSignup ? 'Login instead' : 'Sign up'}
-                                </button>
-                            </div>
                         </form>
-                        <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#6b7280', textAlign: 'center' }}>
-                            Demo account: username: demo, password: demo123
-                        </p>
                     </div>
                 </div>
             );
         }
         
-        ReactDOM.render(<YappyChat />, document.getElementById('root'));
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
