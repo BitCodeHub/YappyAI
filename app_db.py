@@ -9,6 +9,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
@@ -25,6 +26,9 @@ import re
 import requests
 import logging
 from bs4 import BeautifulSoup
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -534,30 +538,59 @@ Based on the search results above, provide a specific, detailed answer using the
 class PlannerAgent:
     """Planning agent for trips, schedules, and organizing tasks"""
     
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
+    
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
-        """Process planning requests"""
+        """Process planning requests with web search for current information"""
         
-        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in planning and organizing!
+        # Check if query needs current information
+        needs_search = any(word in query.lower() for word in ['price', 'cost', 'weather', 'available', 'open', 'current', 'latest', 'now'])
+        
+        search_results = ""
+        if needs_search:
+            logger.info(f"Planner agent searching for current info: {query}")
+            search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in planning and organizing!
 You help users plan trips, create itineraries, organize schedules, and arrange activities.
 Be detailed and ask clarifying questions when needed. Use dog-related expressions occasionally.
+Today's date is {self.date}.
 
 When helping with trip planning:
 1. Ask about destination, dates, budget, and preferences
 2. Suggest activities, accommodations, and transportation
 3. Create detailed itineraries
-4. Provide practical tips and recommendations"""
+4. Provide practical tips and recommendations
+5. Use current information from web searches when available"""
         
-        user_prompt = f"User request: {query}"
+        if search_results:
+            user_prompt = f"""User request: {query}
+
+Current information from web search:
+{search_results}
+
+Use the search results above to provide accurate, up-to-date information about prices, availability, weather, etc."""
+        else:
+            user_prompt = f"User request: {query}"
         
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
 
 # Code Agent Implementation
 class CodeAgent:
-    """Code generation and debugging agent"""
+    """Code generation and debugging agent - Always uses Claude"""
     
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
-        """Process coding requests"""
+        """Process coding requests - Always uses Claude/Anthropic"""
+        
+        # ALWAYS use Claude for Code Agent
+        claude_api_key = os.getenv('CLAUDE_API_KEY')
+        if claude_api_key:
+            model_name = "anthropic"
+            api_key = claude_api_key
+            logger.info("Code Agent: Using Claude API for enhanced coding assistance")
         
         system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in coding and programming!
 You help users write code, debug programs, explain algorithms, and solve technical problems.
@@ -576,22 +609,37 @@ When helping with code:
 
 # Research Agent Implementation
 class ResearchAgent:
-    """Research and learning agent"""
+    """Research and learning agent with web search"""
+    
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
     
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
-        """Process research and learning requests"""
+        """Process research and learning requests with web search for current information"""
         
-        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in research and learning!
+        # Always search for research topics to get latest information
+        logger.info(f"Research agent searching for: {query}")
+        search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in research and learning!
 You help users understand complex topics, conduct research, and learn new things.
 Be thorough, accurate, and educational. Use dog-related expressions occasionally.
+Today's date is {self.date}.
 
 When helping with research:
 1. Break down complex topics into understandable parts
-2. Provide accurate and well-sourced information
+2. Provide accurate and well-sourced information from search results
 3. Explain concepts clearly with examples
-4. Suggest additional resources for learning"""
+4. Suggest additional resources for learning
+5. Always use the most current information available"""
         
-        user_prompt = f"User research request: {query}"
+        user_prompt = f"""User research request: {query}
+
+Current research from web search:
+{search_results}
+
+Use the search results above to provide comprehensive, accurate, and up-to-date information on this topic."""
         
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
@@ -620,16 +668,41 @@ When helping with files:
 
 # Casual Agent Implementation
 class CasualAgent:
-    """Casual conversation agent without web search"""
+    """Casual conversation agent with optional web search"""
+    
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
     
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
-        """Process casual conversation"""
+        """Process casual conversation with web search for factual questions"""
         
-        system_prompt = """You are Yappy 🐕, a friendly and enthusiastic AI assistant!
+        # Check if query needs factual/current information
+        needs_search = any(word in query.lower() for word in ['who', 'what', 'when', 'where', 'how many', 'how much', 'news', 'current', 'latest'])
+        
+        search_results = ""
+        if needs_search:
+            logger.info(f"Casual agent searching for factual info: {query}")
+            search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are Yappy 🐕, a friendly and enthusiastic AI assistant!
 Be cheerful and helpful. Use dog-related expressions occasionally (like "Woof!" or "*wags tail*").
-Always aim to brighten the user's day with your positive energy!"""
+Always aim to brighten the user's day with your positive energy!
+Today's date is {self.date}.
+
+When web search results are available, use them to provide accurate, current information."""
         
-        return await llm_handler._call_llm(system_prompt, query, model_name, api_key, conversation_history)
+        if search_results:
+            user_prompt = f"""User: {query}
+
+Current information from web:
+{search_results}
+
+Respond in a friendly, casual way while incorporating any relevant facts from the search results."""
+        else:
+            user_prompt = query
+        
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
 
 # LLM Handler
 class LLMHandler:
@@ -637,13 +710,14 @@ class LLMHandler:
     
     def __init__(self):
         self.router = AgentRouter()
+        # Initialize agents (some now have web search capabilities)
         self.agents = {
-            "browser": BrowserAgent(),
-            "casual": CasualAgent(),
-            "planner": PlannerAgent(),
-            "code": CodeAgent(),
-            "file": FileAgent(),
-            "research": ResearchAgent()
+            "browser": BrowserAgent(),      # Already has web search
+            "casual": CasualAgent(),        # Now has optional web search
+            "planner": PlannerAgent(),      # Now has web search for current info
+            "code": CodeAgent(),            # Uses Claude API by default
+            "file": FileAgent(),            # File operations only
+            "research": ResearchAgent()     # Now always uses web search
         }
         
     async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
