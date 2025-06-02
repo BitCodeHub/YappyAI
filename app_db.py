@@ -1,5 +1,5 @@
 """
-Yappy AI Assistant - Fixed to match local app's agent routing
+AgenticSeek AI Assistant - Fixed to match local app's agent routing
 Web queries go to browser agent, not casual agent
 """
 import os
@@ -511,7 +511,7 @@ class BrowserAgent:
         search_results = self.searx_tool.execute(query)
         
         # Build context for LLM
-        system_prompt = f"""You are Yappy 🐕, a friendly AI assistant with web browsing capabilities.
+        system_prompt = f"""You are an AI assistant with web browsing capabilities.
 Today's date is {self.date}.
 You have searched the web and found the following results.
 Use these search results to provide accurate, current information.
@@ -553,7 +553,7 @@ class PlannerAgent:
             logger.info(f"Planner agent searching for current info: {query}")
             search_results = self.searx_tool.execute(query)
         
-        system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in planning and organizing!
+        system_prompt = f"""You are an AI assistant specialized in planning and organizing!
 You help users plan trips, create itineraries, organize schedules, and arrange activities.
 Be detailed and ask clarifying questions when needed.
 Today's date is {self.date}.
@@ -592,7 +592,7 @@ class CodeAgent:
             api_key = claude_api_key
             logger.info("Code Agent: Using Claude API for enhanced coding assistance")
         
-        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in coding and programming!
+        system_prompt = """You are an AI assistant specialized in coding and programming!
 You help users write code, debug programs, explain algorithms, and solve technical problems.
 Be helpful and clear in your explanations.
 
@@ -622,7 +622,7 @@ class ResearchAgent:
         logger.info(f"Research agent searching for: {query}")
         search_results = self.searx_tool.execute(query)
         
-        system_prompt = f"""You are Yappy 🐕, a friendly AI assistant specialized in research and learning!
+        system_prompt = f"""You are an AI assistant specialized in research and learning!
 You help users understand complex topics, conduct research, and learn new things.
 Be thorough, accurate, and educational.
 Today's date is {self.date}.
@@ -651,7 +651,7 @@ class FileAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process file system requests"""
         
-        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in file and directory management!
+        system_prompt = """You are an AI assistant specialized in file and directory management!
 You help users find files, organize directories, and manage their file system.
 Be helpful and provide clear instructions.
 
@@ -685,7 +685,7 @@ class CasualAgent:
             logger.info(f"Casual agent searching for factual info: {query}")
             search_results = self.searx_tool.execute(query)
         
-        system_prompt = f"""You are Yappy 🐕, a friendly and enthusiastic AI assistant!
+        system_prompt = f"""You are a friendly and helpful AI assistant!
 Be cheerful and helpful.
 Always aim to brighten the user's day with your positive energy!
 Today's date is {self.date}.
@@ -753,7 +753,7 @@ class LLMHandler:
             "code": "Code Agent 💻",
             "file": "File Agent 📁",
             "research": "Research Agent 🔬",
-            "casual": "Casual Agent 🐕"
+            "casual": "Casual Agent"
         }
         
         if conversation_history:
@@ -803,7 +803,7 @@ class LLMHandler:
                 messages = [
                     {
                         "role": "system",
-                        "content": "You are Yappy 🐕, a friendly AI assistant that can analyze images! Be enthusiastic and helpful."
+                        "content": "You are an AI assistant that can analyze images! Be helpful and informative."
                     },
                     {
                         "role": "user",
@@ -844,7 +844,7 @@ class LLMHandler:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": f"You are Yappy 🐕, a friendly AI assistant! {prompt}"
+                                    "text": f"You are an AI assistant! {prompt}"
                                 },
                                 {
                                     "type": "image",
@@ -874,7 +874,7 @@ class LLMHandler:
                 image = Image.open(io.BytesIO(image_data))
                 
                 response = model.generate_content([
-                    f"You are Yappy 🐕, a friendly AI assistant! {prompt}",
+                    f"You are an AI assistant! {prompt}",
                     image
                 ])
                 
@@ -1042,11 +1042,11 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    print("🐕 Yappy is shutting down... Goodbye!")
+    print("AgenticSeek is shutting down... Goodbye!")
     if database.is_connected:
         await database.disconnect()
 
-app = FastAPI(title="Yappy AI Assistant", version="7.0.0", lifespan=lifespan)
+app = FastAPI(title="AgenticSeek AI Assistant", version="7.0.0", lifespan=lifespan)
 
 # CORS configuration
 app.add_middleware(
