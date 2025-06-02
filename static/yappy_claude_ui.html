@@ -174,6 +174,22 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        
+        /* Modal slide up animation */
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-dark-bg text-text-primary min-h-screen">
@@ -202,6 +218,8 @@
             const [currentChatId, setCurrentChatId] = useState(null);
             const [showProfileSettings, setShowProfileSettings] = useState(false);
             const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+            const [showActionModal, setShowActionModal] = useState(false);
+            const [selectedActionCategory, setSelectedActionCategory] = useState(null);
             const [apiKeys, setApiKeys] = useState({
                 openai: '',
                 anthropic: '',
@@ -387,11 +405,18 @@
             
             // Handle dropdown selection
             const handleDropdownSelect = async (category, option) => {
-                setActiveDropdown(null);
+                setShowActionModal(false);
+                setSelectedActionCategory(null);
                 setInputValue(option);
                 
                 // Simulate sending message
                 await handleSend(option, agentMap[category]);
+            };
+            
+            // Handle action button click
+            const handleActionClick = (category) => {
+                setSelectedActionCategory(category);
+                setShowActionModal(true);
             };
             
             // Handle file upload
@@ -960,52 +985,36 @@
                         <div className="mt-4 md:mt-6 overflow-x-auto action-buttons-scroll">
                             <div className="flex gap-2 min-w-max px-1">
                                 {Object.keys(dropdownOptions).map(category => (
-                                    <div key={category} className="relative">
-                                        <button
-                                            onClick={() => setActiveDropdown(activeDropdown === category ? null : category)}
-                                            className="bg-dark-secondary hover:bg-dark-tertiary text-text-primary py-2 px-4 rounded-full transition-all text-sm whitespace-nowrap flex items-center gap-2"
-                                        >
-                                            {category === 'Write' && (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                                </svg>
-                                            )}
-                                            {category === 'Learn' && (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                                </svg>
-                                            )}
-                                            {category === 'Code' && (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                                                </svg>
-                                            )}
-                                            {category === 'Anything' && (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                </svg>
-                                            )}
-                                            <span>{category}</span>
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    <button
+                                        key={category}
+                                        onClick={() => handleActionClick(category)}
+                                        className="bg-dark-secondary hover:bg-dark-tertiary text-text-primary py-2 px-4 rounded-full transition-all text-sm whitespace-nowrap flex items-center gap-2"
+                                    >
+                                        {category === 'Write' && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                             </svg>
-                                        </button>
-                                        
-                                        {/* Dropdown Menu */}
-                                        {activeDropdown === category && (
-                                            <div className="absolute z-10 mt-2 w-64 bg-dark-tertiary rounded-lg shadow-xl overflow-hidden dropdown-enter">
-                                                {dropdownOptions[category].map(option => (
-                                                    <button
-                                                        key={option}
-                                                        onClick={() => handleDropdownSelect(category, option)}
-                                                        className="w-full text-left px-4 py-3 text-text-primary hover:bg-dark-secondary transition-colors text-sm"
-                                                    >
-                                                        {option}
-                                                    </button>
-                                                ))}
-                                            </div>
                                         )}
-                                    </div>
+                                        {category === 'Learn' && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                            </svg>
+                                        )}
+                                        {category === 'Code' && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                            </svg>
+                                        )}
+                                        {category === 'Anything' && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                            </svg>
+                                        )}
+                                        <span>{category}</span>
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -1267,6 +1276,93 @@
                                                     Save API Keys
                                                 </button>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    
+                    {/* Action Suggestions Modal */}
+                    {showActionModal && selectedActionCategory && (
+                        <>
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-50 z-50"
+                                onClick={() => {
+                                    setShowActionModal(false);
+                                    setSelectedActionCategory(null);
+                                }}
+                            />
+                            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+                                <div className="bg-dark-secondary rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-lg max-h-[80vh] overflow-hidden animate-slide-up">
+                                    <div className="p-4 sm:p-6">
+                                        {/* Modal Header */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                {selectedActionCategory === 'Write' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Learn' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Code' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                {selectedActionCategory === 'Anything' && (
+                                                    <div className="w-10 h-10 bg-orange-accent/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-5 h-5 text-orange-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <h3 className="text-lg font-semibold text-text-primary">{selectedActionCategory}</h3>
+                                                    <p className="text-sm text-text-secondary">Choose a suggestion</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setShowActionModal(false);
+                                                    setSelectedActionCategory(null);
+                                                }}
+                                                className="text-text-secondary hover:text-text-primary p-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Suggestions List */}
+                                        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                                            {dropdownOptions[selectedActionCategory]?.map(option => (
+                                                <button
+                                                    key={option}
+                                                    onClick={() => handleDropdownSelect(selectedActionCategory, option)}
+                                                    className="w-full text-left p-4 bg-dark-tertiary hover:bg-dark-bg rounded-lg transition-all group"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-text-primary group-hover:text-orange-accent transition-colors">
+                                                            {option}
+                                                        </span>
+                                                        <svg className="w-4 h-4 text-text-secondary group-hover:text-orange-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                        </svg>
+                                                    </div>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
