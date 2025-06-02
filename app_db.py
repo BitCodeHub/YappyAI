@@ -909,7 +909,7 @@ Here are some popular AI image analysis websites:
 **Option 3: Describe It to Me**
 Tell me what's in the image and I'll help you with any questions about it!
 
-*wags tail hopefully* 🐕 Which option would you like to try?"""
+Which option would you like to try?"""
                 
                 return response, 0
             
