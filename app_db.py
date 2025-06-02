@@ -396,58 +396,99 @@ class AgentRouter:
     
     def route_query(self, query: str) -> Tuple[str, bool]:
         """
-        Route query to appropriate agent
+        Route query to appropriate agent using pattern matching
         Returns: (agent_type, needs_search)
         """
         query_lower = query.lower()
         
-        # Browser agent patterns (needs web search)
-        browser_patterns = [
-            # Direct web requests
-            'search', 'find', 'look up', 'browse', 'web', 'online', 'internet',
-            # Information queries
-            'who is', 'what is', 'when is', 'where is', 'how much', 'how many',
-            'latest', 'current', 'recent', 'news', 'update',
-            # Specific topics
-            'weather', 'temperature', 'forecast',
-            'price', 'cost', 'stock', 'crypto', 'bitcoin',
-            'president', 'ceo', 'company', 'organization',
-            'game', 'score', 'sports', 'nba', 'nfl',
-            # Research
-            'research', 'information about', 'tell me about', 'facts about'
-        ]
-        
-        # Code agent patterns
+        # Code agent patterns - check first for programming keywords
         code_patterns = [
-            'code', 'script', 'program', 'function', 'debug', 'error',
-            'python', 'javascript', 'java', 'c++', 'sql', 'bash',
-            'algorithm', 'implement', 'fix', 'syntax'
+            'code', 'script', 'program', 'function', 'debug', 'error', 'bug',
+            'python', 'javascript', 'java', 'c++', 'c#', 'ruby', 'go', 'rust',
+            'html', 'css', 'sql', 'bash', 'shell', 'powershell',
+            'algorithm', 'implement', 'fix', 'syntax', 'compile', 'run',
+            'class', 'method', 'variable', 'loop', 'array', 'api',
+            'framework', 'library', 'package', 'module', 'import',
+            'test', 'unit test', 'testing', 'exception', 'stack trace'
         ]
         
-        # File agent patterns
+        # File agent patterns - file system operations
         file_patterns = [
-            'file', 'folder', 'directory', 'document',
-            'create file', 'read file', 'find file', 'locate'
+            'file', 'folder', 'directory', 'path', 'document',
+            'create file', 'read file', 'write file', 'delete file',
+            'find file', 'locate', 'search file', 'list files',
+            'move file', 'copy file', 'rename file', 'backup',
+            'csv', 'txt', 'json', 'xml', 'pdf', 'doc',
+            'download', 'upload', 'save', 'open file'
         ]
         
-        # Planner agent patterns
+        # Planner agent patterns - planning and organizing
         planner_patterns = [
             'plan', 'planning', 'trip', 'travel', 'itinerary', 'vacation',
             'journey', 'tour', 'visit', 'destination', 'schedule',
-            'organize', 'prepare', 'arrange', 'book', 'reservation'
+            'organize', 'prepare', 'arrange', 'book', 'reservation',
+            'flight', 'hotel', 'accommodation', 'transport',
+            'budget', 'timeline', 'agenda', 'calendar', 'event',
+            'meeting', 'appointment', 'roadmap', 'strategy'
         ]
         
-        # Check patterns
-        if any(pattern in query_lower for pattern in planner_patterns):
-            return "planner", False
-        elif any(pattern in query_lower for pattern in browser_patterns):
-            return "browser", True
-        elif any(pattern in query_lower for pattern in code_patterns):
+        # Research agent patterns - deep learning and research
+        research_patterns = [
+            'research', 'study', 'learn about', 'understand', 'explain',
+            'how does', 'why does', 'what causes', 'theory', 'concept',
+            'tutorial', 'guide', 'lesson', 'teach', 'education',
+            'science', 'history', 'mathematics', 'physics', 'chemistry',
+            'biology', 'philosophy', 'psychology', 'sociology',
+            'analysis', 'deep dive', 'comprehensive', 'detailed explanation'
+        ]
+        
+        # Browser agent patterns - web search needed
+        browser_patterns = [
+            # Direct web requests
+            'search', 'google', 'find online', 'look up', 'browse', 'web', 'internet',
+            # Information queries
+            'who is', 'what is', 'when is', 'where is', 'how much', 'how many',
+            'latest', 'current', 'recent', 'news', 'update', 'trending',
+            # Specific topics
+            'weather', 'temperature', 'forecast', 'climate',
+            'price', 'cost', 'stock', 'market', 'crypto', 'bitcoin',
+            'president', 'ceo', 'company', 'organization', 'business',
+            'game', 'score', 'sports', 'nba', 'nfl', 'soccer', 'baseball',
+            # Research
+            'research', 'article', 'paper', 'study', 'statistics',
+            'information about', 'tell me about', 'facts about', 'learn about',
+            'wikipedia', 'definition', 'meaning', 'explain what'
+        ]
+        
+        # Priority-based routing (order matters!)
+        # 1. Check for code patterns first (most specific)
+        if any(pattern in query_lower for pattern in code_patterns):
+            # Double check it's not a web search for code
+            if any(web_word in query_lower for web_word in ['search online', 'find online', 'google', 'web']):
+                return "browser", True
             return "code", False
+            
+        # 2. Check for file operations
         elif any(pattern in query_lower for pattern in file_patterns):
             return "file", False
+            
+        # 3. Check for planning/organizing
+        elif any(pattern in query_lower for pattern in planner_patterns):
+            return "planner", False
+            
+        # 4. Check for research/learning (but not web search)
+        elif any(pattern in query_lower for pattern in research_patterns):
+            # If it needs current info, use browser
+            if any(web_word in query_lower for web_word in ['latest', 'current', 'recent', 'news']):
+                return "browser", True
+            return "research", False
+            
+        # 5. Check for web search needs
+        elif any(pattern in query_lower for pattern in browser_patterns):
+            return "browser", True
+            
+        # 6. Default to casual for general conversation
         else:
-            # Default to casual for general conversation
             return "casual", False
 
 # Browser Agent Implementation
@@ -511,6 +552,72 @@ When helping with trip planning:
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
 
+# Code Agent Implementation
+class CodeAgent:
+    """Code generation and debugging agent"""
+    
+    async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
+        """Process coding requests"""
+        
+        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in coding and programming!
+You help users write code, debug programs, explain algorithms, and solve technical problems.
+Be helpful and clear in your explanations. Use dog-related expressions occasionally.
+
+When helping with code:
+1. Write clean, well-commented code
+2. Explain your approach clearly
+3. Suggest best practices and improvements
+4. Help debug errors with patience"""
+        
+        user_prompt = f"User coding request: {query}"
+        
+        # Get response from LLM
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
+
+# Research Agent Implementation
+class ResearchAgent:
+    """Research and learning agent"""
+    
+    async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
+        """Process research and learning requests"""
+        
+        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in research and learning!
+You help users understand complex topics, conduct research, and learn new things.
+Be thorough, accurate, and educational. Use dog-related expressions occasionally.
+
+When helping with research:
+1. Break down complex topics into understandable parts
+2. Provide accurate and well-sourced information
+3. Explain concepts clearly with examples
+4. Suggest additional resources for learning"""
+        
+        user_prompt = f"User research request: {query}"
+        
+        # Get response from LLM
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
+
+# File Agent Implementation
+class FileAgent:
+    """File and directory management agent"""
+    
+    async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
+        """Process file system requests"""
+        
+        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in file and directory management!
+You help users find files, organize directories, and manage their file system.
+Be helpful and provide clear instructions. Use dog-related expressions occasionally.
+
+When helping with files:
+1. Provide clear file paths and commands
+2. Explain file operations step by step
+3. Suggest organization strategies
+4. Help with file searches and management"""
+        
+        user_prompt = f"User file request: {query}"
+        
+        # Get response from LLM
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
+
 # Casual Agent Implementation
 class CasualAgent:
     """Casual conversation agent without web search"""
@@ -533,7 +640,10 @@ class LLMHandler:
         self.agents = {
             "browser": BrowserAgent(),
             "casual": CasualAgent(),
-            "planner": PlannerAgent()
+            "planner": PlannerAgent(),
+            "code": CodeAgent(),
+            "file": FileAgent(),
+            "research": ResearchAgent()
         }
         
     async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
@@ -561,8 +671,17 @@ class LLMHandler:
         # Get agent
         agent = self.agents.get(agent_type, self.agents["casual"])
         
-        # Generate routing message if switching from casual agent
+        # Generate routing message
         routing_message = ""
+        agent_names = {
+            "browser": "Browser Agent 🌐",
+            "planner": "Planning Agent 📅",
+            "code": "Code Agent 💻",
+            "file": "File Agent 📁",
+            "research": "Research Agent 🔬",
+            "casual": "Casual Agent 🐕"
+        }
+        
         if conversation_history:
             # Check last agent used
             last_agent = None
@@ -571,15 +690,13 @@ class LLMHandler:
                     last_agent = msg.get('agent_used')
                     break
             
-            # Show routing message if switching agents
+            # Show routing message if switching agents (not to casual)
             if last_agent and last_agent != agent_type and agent_type != "casual":
-                agent_names = {
-                    "browser": "Browser Agent 🌐",
-                    "planner": "Planning Agent 📅",
-                    "code": "Code Agent 💻",
-                    "file": "File Agent 📁"
-                }
-                routing_message = f"\n\n*[Routing you to {agent_names.get(agent_type, agent_type.title() + ' Agent')}...]*\n\n"
+                routing_message = f"\n\n*[Routing you to {agent_names.get(agent_type, agent_type.title() + ' Agent')} for specialized assistance...]*\n\n"
+        else:
+            # First message - show which agent is handling if not casual
+            if agent_type != "casual":
+                routing_message = f"\n\n*[{agent_names.get(agent_type, agent_type.title() + ' Agent')} is here to help!]*\n\n"
         
         # Process with agent
         response = await agent.process(prompt, self, api_key, model_name, conversation_history)
