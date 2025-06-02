@@ -782,9 +782,9 @@
                     
                     {/* Main Container */}
                     <div className="flex-1 w-full flex flex-col">
-                        {/* Header with Menu Button */}
-                        <header className="bg-dark-bg border-b border-dark-tertiary/50 sticky top-0 z-30">
-                            <div className="px-3 py-2.5 flex items-center gap-2">
+                        {/* Fixed Header with Menu Button - Always visible */}
+                        <header className="bg-dark-bg border-b border-dark-tertiary/50 fixed top-0 left-0 right-0 z-30">
+                            <div className="px-3 py-2.5 flex items-center gap-2 max-w-4xl mx-auto">
                                 <button
                                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                                     className="p-2 rounded-md hover:bg-dark-secondary/50 transition-all group relative"
@@ -797,8 +797,8 @@
                             </div>
                         </header>
                         
-                        {/* Content Area */}
-                        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-0 md:px-6">
+                        {/* Content Area with padding for fixed header */}
+                        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-0 md:px-6 pt-14">
                             {/* Conditional layout based on whether there are messages */}
                             {messages.length === 0 ? (
                                 // Initial state - greeting and input closer together
@@ -823,25 +823,8 @@
                             ) : (
                                 // Normal state - with messages
                                 <>
-                                    {/* Greeting Section - Always visible at top */}
-                                    <div className="px-3 sm:px-4 md:px-6 pt-4 md:pt-8">
-                                        <div className="text-center mb-6">
-                                            <div className="inline-block">
-                                                <span className="starburst mb-2 md:mb-4 block text-xl md:text-2xl">✦</span>
-                                            </div>
-                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif text-text-primary px-4">
-                                                {getGreeting()}, {username}
-                                            </h1>
-                                            {username !== 'there' && (
-                                                <p className="text-text-secondary mt-2 text-sm md:text-base">
-                                                    Welcome back to your AI assistant
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Messages Area */}
-                                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 space-y-4">
+                                    {/* Messages Area - No greeting at top when messages exist */}
+                                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 space-y-4 pt-4">
                             {messages.map(message => {
                                 if (message.type === 'system') {
                                     return (
@@ -900,8 +883,8 @@
                                 </>
                             )}
                             
-                            {/* Bottom Input Section - Fixed position */}
-                            <div className="px-3 sm:px-4 md:px-6 pb-2 md:pb-3 mt-4">
+                            {/* Bottom Input Section - Fixed at bottom */}
+                            <div className="sticky bottom-0 bg-dark-bg px-3 sm:px-4 md:px-6 pb-2 md:pb-3 pt-2 border-t border-dark-tertiary/30">
                                 {/* Uploaded Files Display */}
                                 {uploadedFiles.length > 0 && (
                                     <div className="mb-4">
