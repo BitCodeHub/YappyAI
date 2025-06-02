@@ -430,8 +430,17 @@ class AgentRouter:
             'create file', 'read file', 'find file', 'locate'
         ]
         
+        # Planner agent patterns
+        planner_patterns = [
+            'plan', 'planning', 'trip', 'travel', 'itinerary', 'vacation',
+            'journey', 'tour', 'visit', 'destination', 'schedule',
+            'organize', 'prepare', 'arrange', 'book', 'reservation'
+        ]
+        
         # Check patterns
-        if any(pattern in query_lower for pattern in browser_patterns):
+        if any(pattern in query_lower for pattern in planner_patterns):
+            return "planner", False
+        elif any(pattern in query_lower for pattern in browser_patterns):
             return "browser", True
         elif any(pattern in query_lower for pattern in code_patterns):
             return "code", False
@@ -480,6 +489,28 @@ Based on the search results above, provide a specific, detailed answer using the
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
 
+# Planner Agent Implementation
+class PlannerAgent:
+    """Planning agent for trips, schedules, and organizing tasks"""
+    
+    async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
+        """Process planning requests"""
+        
+        system_prompt = """You are Yappy 🐕, a friendly AI assistant specialized in planning and organizing!
+You help users plan trips, create itineraries, organize schedules, and arrange activities.
+Be detailed and ask clarifying questions when needed. Use dog-related expressions occasionally.
+
+When helping with trip planning:
+1. Ask about destination, dates, budget, and preferences
+2. Suggest activities, accommodations, and transportation
+3. Create detailed itineraries
+4. Provide practical tips and recommendations"""
+        
+        user_prompt = f"User request: {query}"
+        
+        # Get response from LLM
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
+
 # Casual Agent Implementation
 class CasualAgent:
     """Casual conversation agent without web search"""
@@ -501,7 +532,8 @@ class LLMHandler:
         self.router = AgentRouter()
         self.agents = {
             "browser": BrowserAgent(),
-            "casual": CasualAgent()
+            "casual": CasualAgent(),
+            "planner": PlannerAgent()
         }
         
     async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
@@ -529,8 +561,32 @@ class LLMHandler:
         # Get agent
         agent = self.agents.get(agent_type, self.agents["casual"])
         
+        # Generate routing message if switching from casual agent
+        routing_message = ""
+        if conversation_history:
+            # Check last agent used
+            last_agent = None
+            for msg in reversed(conversation_history):
+                if isinstance(msg, dict) and 'agent_used' in msg:
+                    last_agent = msg.get('agent_used')
+                    break
+            
+            # Show routing message if switching agents
+            if last_agent and last_agent != agent_type and agent_type != "casual":
+                agent_names = {
+                    "browser": "Browser Agent 🌐",
+                    "planner": "Planning Agent 📅",
+                    "code": "Code Agent 💻",
+                    "file": "File Agent 📁"
+                }
+                routing_message = f"\n\n*[Routing you to {agent_names.get(agent_type, agent_type.title() + ' Agent')}...]*\n\n"
+        
         # Process with agent
         response = await agent.process(prompt, self, api_key, model_name, conversation_history)
+        
+        # Add routing message to response if applicable
+        if routing_message:
+            response = routing_message + response
         
         return response, 0  # Token count would be calculated by LLM
     
