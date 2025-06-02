@@ -945,96 +945,90 @@
                                 
                                 {/* Input Section */}
                                 <div className="bg-dark-secondary rounded-xl shadow-lg p-3 md:p-4">
-                            <div className="flex flex-col md:flex-row md:items-center gap-3">
-                                {/* Top row on mobile: Icons and Input */}
-                                <div className="flex items-center flex-1 gap-2">
-                                    {/* Left Icons - Now visible on all devices */}
-                                    <div className="flex items-center space-x-1">
-                                        {/* Hidden file input */}
+                                    <div className="flex items-center gap-2">
+                                        {/* Left Icons - Now visible on all devices */}
+                                        <div className="flex items-center">
+                                            {/* Hidden file input */}
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                multiple
+                                                onChange={handleFileUpload}
+                                                className="hidden"
+                                                accept="*/*"
+                                            />
+                                            
+                                            {/* File Upload Button (Plus) */}
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-text-secondary hover:text-text-primary p-1.5 md:p-2 transition-colors"
+                                                title="Upload file"
+                                            >
+                                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Input Field */}
                                         <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            multiple
-                                            onChange={handleFileUpload}
-                                            className="hidden"
-                                            accept="*/*"
+                                            type="text"
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyPress={handleKeyPress}
+                                            placeholder="How can I help you today?"
+                                            className="flex-1 bg-transparent text-text-primary placeholder-text-secondary outline-none text-sm md:text-base"
+                                            disabled={isLoading}
                                         />
                                         
-                                        {/* File Upload Button (Plus) */}
-                                        <button 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="text-text-secondary hover:text-text-primary p-2 transition-colors"
-                                            title="Upload file"
+                                        {/* Send Button - Smaller on mobile */}
+                                        <button
+                                            onClick={() => handleSend()}
+                                            disabled={isLoading || !inputValue.trim()}
+                                            className="bg-orange-accent hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full p-1.5 md:p-2 transition-all flex-shrink-0"
                                         >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                                             </svg>
                                         </button>
-                                        
                                     </div>
                                     
-                                    {/* Input Field */}
-                                    <input
-                                        type="text"
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        onKeyPress={handleKeyPress}
-                                        placeholder="How can I help you today?"
-                                        className="flex-1 bg-transparent text-text-primary placeholder-text-secondary outline-none min-w-0"
-                                        disabled={isLoading}
-                                    />
+                                    {/* Action Buttons - Below input */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                        {Object.keys(dropdownOptions).map(category => (
+                                            <button
+                                                key={category}
+                                                onClick={() => handleActionClick(category)}
+                                                className="bg-dark-tertiary hover:bg-dark-tertiary/70 text-text-primary py-2 px-3 rounded-lg transition-all text-xs md:text-sm flex items-center justify-center gap-1.5"
+                                            >
+                                                {category === 'Write' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Learn' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Code' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                                    </svg>
+                                                )}
+                                                {category === 'Anything' && (
+                                                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                                    </svg>
+                                                )}
+                                                <span className="text-xs md:text-sm">{category}</span>
+                                                <svg className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                
-                                {/* Send Button */}
-                                <button
-                                    onClick={() => handleSend()}
-                                    disabled={isLoading || !inputValue.trim()}
-                                    className="bg-orange-accent hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full p-2 transition-all"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        {/* Action Button Row - Single Row Like Claude */}
-                        <div className="mt-4 md:mt-6 overflow-x-auto action-buttons-scroll">
-                            <div className="flex gap-2 min-w-max px-1">
-                                {Object.keys(dropdownOptions).map(category => (
-                                    <button
-                                        key={category}
-                                        onClick={() => handleActionClick(category)}
-                                        className="bg-dark-secondary hover:bg-dark-tertiary text-text-primary py-2 px-4 rounded-full transition-all text-sm whitespace-nowrap flex items-center gap-2"
-                                    >
-                                        {category === 'Write' && (
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                            </svg>
-                                        )}
-                                        {category === 'Learn' && (
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                            </svg>
-                                        )}
-                                        {category === 'Code' && (
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                                            </svg>
-                                        )}
-                                        {category === 'Anything' && (
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                            </svg>
-                                        )}
-                                        <span>{category}</span>
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                             </div>
                         </div>
                     </div>
