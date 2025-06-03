@@ -1173,6 +1173,24 @@ async def lifespan(app: FastAPI):
         engine = sqlalchemy.create_engine(DATABASE_URL)
         metadata.create_all(bind=engine)
         print("✅ Database tables created/verified")
+        
+        # Create default admin user if it doesn't exist
+        query = users_table.select().where(users_table.c.username == "admin")
+        existing_user = await database.fetch_one(query)
+        
+        if not existing_user:
+            salt = secrets.token_hex(16)
+            password_hash = hash_password("yappy123", salt)
+            
+            insert_query = users_table.insert().values(
+                username="admin",
+                email="admin@yappy.ai",
+                password_hash=password_hash,
+                salt=salt,
+                created_at=datetime.utcnow()
+            )
+            await database.execute(insert_query)
+            print("✅ Default admin user created (username: admin, password: yappy123)")
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
     
