@@ -981,7 +981,7 @@ class LLMHandler:
                 return response.content[0].text, 0
             
             # For Google Gemini
-            elif model_name == "google" and genai and PIL_AVAILABLE:
+            elif (model_name == "google" or model_name == "gemini") and genai and PIL_AVAILABLE:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-pro-vision')
                 
@@ -1099,7 +1099,7 @@ Which option would you like to try?"""
                 
                 return response.content[0].text
             
-            elif model_name == "google" and genai:
+            elif (model_name == "google" or model_name == "gemini") and genai:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 
@@ -1411,8 +1411,8 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
                 api_key = os.getenv('CLAUDE_API_KEY')
             elif request.model_name == "openai":
                 api_key = os.getenv('OPENAI_API_KEY')
-            elif request.model_name == "gemini":
-                api_key = os.getenv('GEMINI_API_KEY')
+            elif request.model_name == "google" or request.model_name == "gemini":
+                api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
             elif request.model_name == "groq":
                 api_key = os.getenv('GROQ_API_KEY')
         
@@ -1420,6 +1420,8 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         logger.info(f"User: {username}, Model: {request.model_name}")
         logger.info(f"API keys available: {list(api_keys.keys())}")
         logger.info(f"API key found: {'Yes' if api_key else 'No'} (including env vars)")
+        if request.model_name in ["google", "gemini"] and not api_key:
+            logger.warning(f"No Google/Gemini API key found. User keys: {list(api_keys.keys())}, Env vars checked: GEMINI_API_KEY, GOOGLE_API_KEY")
         
         # If no API key found for the requested model, check if user has any API keys
         # and suggest they update it for the correct model
