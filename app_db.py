@@ -427,13 +427,15 @@ class AgentRouter:
         ]
         
         # Planner agent patterns - planning and organizing
+        # Planner agent patterns - task decomposition and project planning ONLY
+        # NOT for travel planning (that goes to Casual Agent)
         planner_patterns = [
-            'plan', 'planning', 'trip', 'travel', 'itinerary', 'vacation',
-            'journey', 'tour', 'visit', 'destination', 'schedule',
-            'organize', 'prepare', 'arrange', 'book', 'reservation',
-            'flight', 'hotel', 'accommodation', 'transport',
-            'budget', 'timeline', 'agenda', 'calendar', 'event',
-            'meeting', 'appointment', 'roadmap', 'strategy'
+            'build a web app', 'create an application', 'develop a system',
+            'make a program', 'setup a project', 'implement a solution',
+            'organize files', 'structure a project', 'design a system',
+            'coordinate tasks', 'break down project', 'decompose task',
+            'project roadmap', 'development strategy', 'implementation plan',
+            'multi-step project', 'complex task', 'workflow design'
         ]
         
         # Research agent patterns - deep learning and research
