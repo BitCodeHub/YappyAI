@@ -532,11 +532,31 @@
                     }
                 } catch (error) {
                     console.error('Error:', error);
+                    let errorContent = 'Sorry, I encountered an error. ';
+                    
+                    if (error.response) {
+                        // The request was made and the server responded with error
+                        console.error('Error response:', error.response.data);
+                        if (error.response.status === 401) {
+                            errorContent += 'Your session has expired. Please refresh the page and log in again.';
+                        } else if (error.response.status === 500) {
+                            errorContent += error.response.data.detail || 'Server error occurred. Please try again.';
+                        } else {
+                            errorContent += error.response.data.detail || 'Please make sure you are logged in and have configured your API keys.';
+                        }
+                    } else if (error.request) {
+                        // The request was made but no response was received
+                        errorContent += 'Cannot connect to the server. Please check if the backend is running.';
+                    } else {
+                        // Something else happened
+                        errorContent += error.message || 'An unexpected error occurred.';
+                    }
+                    
                     const errorMessage = {
                         id: Date.now() + 1,
                         type: 'ai',
                         agent: 'System',
-                        content: 'Sorry, I encountered an error. Please make sure you are logged in and have configured your API keys.',
+                        content: errorContent,
                         timestamp: new Date()
                     };
                     setMessages(prev => [...prev, errorMessage]);
