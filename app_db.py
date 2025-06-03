@@ -1082,7 +1082,16 @@ Which option would you like to try?"""
             return f"Server configuration error: No API key configured for {model_name}. Please contact administrator."
         
         try:
-            if model_name == "openai" and openai:
+            if model_name == "openai":
+                if not openai:
+                    logger.error("OpenAI library not available - attempting to import")
+                    try:
+                        import openai as openai_module
+                        openai = openai_module
+                    except ImportError as e:
+                        logger.error(f"Failed to import openai: {e}")
+                        return "OpenAI library is not installed. Please ensure 'openai' is in requirements.txt and redeploy."
+                
                 client = openai.OpenAI(api_key=api_key)
                 
                 messages = [{"role": "system", "content": system_prompt}]
@@ -1095,7 +1104,7 @@ Which option would you like to try?"""
                 messages.append({"role": "user", "content": user_prompt})
                 
                 response = client.chat.completions.create(
-                    model="gpt-4" if "gpt-4" in api_key else "gpt-3.5-turbo",
+                    model="gpt-3.5-turbo",  # Use a reliable model
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1000
@@ -1163,7 +1172,21 @@ Which option would you like to try?"""
                 
         except Exception as e:
             logger.error(f"LLM Error: {e}")
-            return f"I encountered an error: {str(e)}"
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Model: {model_name}, Has API key: {bool(api_key)}")
+            
+            # More specific error messages
+            error_str = str(e).lower()
+            if "connection" in error_str:
+                return "Connection error: Unable to reach the AI service. Please check your internet connection."
+            elif "401" in error_str or "unauthorized" in error_str:
+                return "Authentication error: Your API key may be invalid or expired."
+            elif "429" in error_str or "rate limit" in error_str:
+                return "Rate limit exceeded: Please wait a moment and try again."
+            elif "timeout" in error_str:
+                return "Request timed out. Please try again."
+            else:
+                return f"I encountered an error: {str(e)}"
 
 # FastAPI app setup
 @asynccontextmanager
