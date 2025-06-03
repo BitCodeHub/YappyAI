@@ -493,7 +493,7 @@
                     if (isAuthenticated && authToken) {
                         const payload = {
                             message: messageText,
-                            model_name: 'google', // Default to Google since we're focusing on Gemini
+                            model_name: 'anthropic', // Use Claude for all agents by default
                             api_keys: apiKeys // Include API keys in the request
                         };
                         
