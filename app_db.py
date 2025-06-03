@@ -448,6 +448,17 @@ class AgentRouter:
             'analysis', 'deep dive', 'comprehensive', 'detailed explanation'
         ]
         
+        # Travel agent patterns - travel planning and tourism
+        travel_patterns = [
+            'travel', 'trip', 'vacation', 'holiday', 'tour', 'visit',
+            'itinerary', 'destination', 'tourist', 'tourism', 'sightseeing',
+            'flight', 'hotel', 'accommodation', 'airbnb', 'booking',
+            'passport', 'visa', 'customs', 'airport', 'luggage',
+            'beach', 'mountain', 'city break', 'weekend getaway',
+            'backpack', 'resort', 'cruise', 'road trip', 'journey',
+            'plan to go', 'planning to visit', 'want to travel', 'help me plan'
+        ]
+        
         # Browser agent patterns - web search needed
         browser_patterns = [
             # Direct web requests
@@ -467,33 +478,37 @@ class AgentRouter:
         ]
         
         # Priority-based routing (order matters!)
-        # 1. Check for code patterns first (most specific)
-        if any(pattern in query_lower for pattern in code_patterns):
+        # 1. Check for travel patterns first (high priority)
+        if any(pattern in query_lower for pattern in travel_patterns):
+            return "travel", True
+            
+        # 2. Check for code patterns (most specific)
+        elif any(pattern in query_lower for pattern in code_patterns):
             # Double check it's not a web search for code
             if any(web_word in query_lower for web_word in ['search online', 'find online', 'google', 'web']):
                 return "browser", True
             return "code", False
             
-        # 2. Check for file operations
+        # 3. Check for file operations
         elif any(pattern in query_lower for pattern in file_patterns):
             return "file", False
             
-        # 3. Check for planning/organizing
+        # 4. Check for planning/organizing
         elif any(pattern in query_lower for pattern in planner_patterns):
             return "planner", False
             
-        # 4. Check for research/learning (but not web search)
+        # 5. Check for research/learning (but not web search)
         elif any(pattern in query_lower for pattern in research_patterns):
             # If it needs current info, use browser
             if any(web_word in query_lower for web_word in ['latest', 'current', 'recent', 'news']):
                 return "browser", True
             return "research", False
             
-        # 5. Check for web search needs
+        # 6. Check for web search needs
         elif any(pattern in query_lower for pattern in browser_patterns):
             return "browser", True
             
-        # 6. Default to casual for general conversation
+        # 7. Default to casual for general conversation
         else:
             return "casual", False
 
@@ -582,7 +597,11 @@ Use the search results above to provide accurate, up-to-date information about p
 
 # Code Agent Implementation
 class CodeAgent:
-    """Code generation and debugging agent - Always uses Claude"""
+    """Code generation and debugging agent with web search for documentation"""
+    
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
     
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process coding requests - Always uses Claude/Anthropic"""
@@ -594,17 +613,38 @@ class CodeAgent:
             api_key = claude_api_key
             logger.info("Code Agent: Using Claude API for enhanced coding assistance")
         
-        system_prompt = """You are an AI assistant specialized in coding and programming!
+        # Check if query needs documentation lookup
+        needs_docs = any(word in query.lower() for word in [
+            'how to', 'documentation', 'docs', 'api', 'library', 'framework',
+            'latest version', 'changelog', 'deprecated', 'best practice'
+        ])
+        
+        search_results = ""
+        if needs_docs:
+            logger.info(f"Code agent searching for documentation: {query}")
+            search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are an AI assistant specialized in coding and programming!
 You help users write code, debug programs, explain algorithms, and solve technical problems.
+Today's date is {self.date}.
 Be helpful and clear in your explanations.
 
 When helping with code:
 1. Write clean, well-commented code
 2. Explain your approach clearly
 3. Suggest best practices and improvements
-4. Help debug errors with patience"""
+4. Help debug errors with patience
+5. Use current documentation when available"""
         
-        user_prompt = f"User coding request: {query}"
+        if search_results:
+            user_prompt = f"""User coding request: {query}
+
+Current documentation/information from web:
+{search_results}
+
+Use the search results to provide accurate, up-to-date code examples and documentation references."""
+        else:
+            user_prompt = f"User coding request: {query}"
         
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
@@ -648,22 +688,47 @@ Use the search results above to provide comprehensive, accurate, and up-to-date 
 
 # File Agent Implementation
 class FileAgent:
-    """File and directory management agent"""
+    """File and directory management agent with web search for tutorials"""
+    
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
     
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process file system requests"""
         
-        system_prompt = """You are an AI assistant specialized in file and directory management!
+        # Check if query needs tutorial/guide lookup
+        needs_tutorial = any(word in query.lower() for word in [
+            'how to', 'tutorial', 'guide', 'best way', 'organize', 'structure',
+            'backup', 'sync', 'cloud storage', 'file format'
+        ])
+        
+        search_results = ""
+        if needs_tutorial:
+            logger.info(f"File agent searching for tutorials: {query}")
+            search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are an AI assistant specialized in file and directory management!
 You help users find files, organize directories, and manage their file system.
+Today's date is {self.date}.
 Be helpful and provide clear instructions.
 
 When helping with files:
 1. Provide clear file paths and commands
 2. Explain file operations step by step
 3. Suggest organization strategies
-4. Help with file searches and management"""
+4. Help with file searches and management
+5. Use current best practices when available"""
         
-        user_prompt = f"User file request: {query}"
+        if search_results:
+            user_prompt = f"""User file request: {query}
+
+Current information/tutorials from web:
+{search_results}
+
+Use the search results to provide accurate, up-to-date guidance on file management."""
+        else:
+            user_prompt = f"User file request: {query}"
         
         # Get response from LLM
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
@@ -706,6 +771,48 @@ Respond in a friendly, casual way while incorporating any relevant facts from th
         
         return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
 
+# Travel Agent Implementation
+class TravelAgent:
+    """Travel planning agent with web search for destinations, flights, hotels, and activities"""
+    
+    def __init__(self):
+        self.searx_tool = ImprovedSearch()
+        self.date = datetime.now().strftime("%B %d, %Y")
+    
+    async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
+        """Process travel planning queries with web search"""
+        
+        # Always search for travel information
+        logger.info(f"Travel agent searching for: {query}")
+        search_results = self.searx_tool.execute(query)
+        
+        system_prompt = f"""You are an expert travel planner with extensive knowledge of destinations worldwide.
+Today's date is {self.date}.
+You help users plan amazing trips by providing detailed itineraries, recommendations, and travel tips.
+You always search for current information about destinations, flights, hotels, weather, and local attractions.
+
+When creating travel plans, include:
+- Day-by-day itineraries with specific activities and timings
+- Accommodation recommendations with price ranges
+- Transportation options (flights, trains, local transport)
+- Must-see attractions and hidden gems
+- Restaurant and dining recommendations
+- Budget estimates for different travel styles
+- Weather considerations and what to pack
+- Local customs and travel tips
+- Safety information if relevant
+
+Be enthusiastic about travel and help users get excited about their upcoming trips!"""
+        
+        user_prompt = f"""User's travel request: {query}
+
+Current travel information from web search:
+{search_results}
+
+Create a comprehensive travel plan using the search results above. Be specific with recommendations and include practical details like costs, timings, and booking tips."""
+        
+        return await llm_handler._call_llm(system_prompt, user_prompt, model_name, api_key, conversation_history)
+
 # LLM Handler
 class LLMHandler:
     """Handles LLM interactions"""
@@ -717,9 +824,10 @@ class LLMHandler:
             "browser": BrowserAgent(),      # Already has web search
             "casual": CasualAgent(),        # Now has optional web search
             "planner": PlannerAgent(),      # Now has web search for current info
-            "code": CodeAgent(),            # Uses Claude API by default
-            "file": FileAgent(),            # File operations only
-            "research": ResearchAgent()     # Now always uses web search
+            "code": CodeAgent(),            # Now has web search for docs
+            "file": FileAgent(),            # Now has web search for tutorials
+            "research": ResearchAgent(),    # Now always uses web search
+            "travel": TravelAgent()         # Travel planning with web search
         }
         
     async def get_response(self, prompt: str, model_name: str, api_key: Optional[str] = None, 
@@ -755,7 +863,8 @@ class LLMHandler:
             "code": "Code Agent 💻",
             "file": "File Agent 📁",
             "research": "Research Agent 🔬",
-            "casual": "Casual Agent"
+            "casual": "Casual Agent",
+            "travel": "Travel Agent ✈️"
         }
         
         if conversation_history:

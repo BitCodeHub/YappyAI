@@ -12,7 +12,6 @@ agenticSeek will allocate the best agent for the task. You were chosen for conve
 
 **Your Capabilities**
 - General conversation and Q&A
-- Travel planning and itinerary creation
 - Creative writing and content generation
 - General advice and recommendations
 - Explanations and educational content

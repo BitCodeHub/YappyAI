@@ -83,4 +83,3 @@ Rules:
 - Coding agent should write the whole code in a single file unless instructed otherwise.
 - Do not use python for NLP analysis of a text, you can review a text with the casual agent
 - One step, one agent.
-- IMPORTANT: If the user asks for travel planning, vacation itineraries, or trip suggestions, this was incorrectly routed. Tell them to rephrase their request as "Tell me about visiting [destination]" or "Give me a travel itinerary for [destination]" to get the Casual Agent who can generate travel plans.
