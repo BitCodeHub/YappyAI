@@ -328,13 +328,20 @@
                 'Anything': 'Casual Agent'
             };
             
-            // Full agent names for display
+            // Full agent names for display (matching backend)
             const agentDisplayNames = {
+                'browser': 'Browser Agent 🌐',
+                'planner': 'Planning Agent 📅',
+                'code': 'Code Agent 💻',
+                'file': 'File Agent 📁',
+                'research': 'Research Agent 🔬',
+                'casual': 'Casual Agent',
+                // Legacy names for backward compatibility
                 'Writing Agent': 'Writing Agent',
                 'Research Agent': 'Research Agent',
                 'Code Agent': 'Code Agent',
                 'Casual Agent': 'Casual Agent',
-                'Travel Agent': 'Travel Agent',
+                'Travel Agent': 'Planning Agent',
                 'File Agent': 'File Agent',
                 'Browser Agent': 'Browser Agent'
             };
@@ -470,58 +477,13 @@
                             lowerMessage.includes('uploaded')
                         );
                         
-                        if (hasFileReference && uploadedFiles.length > 0) {
-                            // Route based on file type if referencing files
-                            const referencedFile = uploadedFiles[uploadedFiles.length - 1];
-                            if (referencedFile) {
-                                if (referencedFile.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c|go|rs|sql)$/i)) {
-                                    agent = 'Code Agent';
-                                } else if (referencedFile.type.includes('image')) {
-                                    agent = 'Casual Agent';
-                                } else if (referencedFile.name.match(/\.(txt|md|doc|docx)$/i)) {
-                                    agent = 'Writing Agent';
-                                } else if (referencedFile.name.match(/\.(csv|json|xml)$/i)) {
-                                    agent = 'Research Agent';
-                                } else {
-                                    agent = 'File Agent';
-                                }
-                            }
-                        } else {
-                            // Standard routing - check for keywords
-                            if (lowerMessage.includes('travel') || lowerMessage.includes('trip') || lowerMessage.includes('vacation') || 
-                                lowerMessage.includes('flight') || lowerMessage.includes('hotel') || lowerMessage.includes('visit') ||
-                                lowerMessage.includes('tourism') || lowerMessage.includes('destination') || lowerMessage.includes('planning a trip') ||
-                                lowerMessage.includes('plan a trip') || lowerMessage.includes('going to') || lowerMessage.includes('journey')) {
-                                agent = 'Travel Agent';
-                            } else if (lowerMessage.includes('write') || lowerMessage.includes('blog') || lowerMessage.includes('story') ||
-                                      lowerMessage.includes('essay') || lowerMessage.includes('article') || lowerMessage.includes('draft')) {
-                                agent = 'Writing Agent';
-                            } else if (lowerMessage.includes('learn') || lowerMessage.includes('explain') || lowerMessage.includes('what is') ||
-                                      lowerMessage.includes('how does') || lowerMessage.includes('teach') || lowerMessage.includes('understand')) {
-                                agent = 'Research Agent';
-                            } else if (lowerMessage.includes('code') || lowerMessage.includes('debug') || lowerMessage.includes('sql') || 
-                                      lowerMessage.includes('program') || lowerMessage.includes('function') || lowerMessage.includes('algorithm') ||
-                                      lowerMessage.includes('script') || lowerMessage.includes('develop')) {
-                                agent = 'Code Agent';
-                            } else if (lowerMessage.includes('browse') || lowerMessage.includes('search') || lowerMessage.includes('find online') ||
-                                      lowerMessage.includes('website') || lowerMessage.includes('google')) {
-                                agent = 'Browser Agent';
-                            } else {
-                                agent = 'Casual Agent';
-                            }
-                        }
+                        // Always let backend handle the routing
+                        // The backend has the authoritative routing logic
+                        agent = null;
                     }
                     
-                    // Only show routing message if switching to a different agent
-                    if (agent !== currentAgent || !currentAgent) {
-                        const routingMessage = {
-                            id: Date.now() + 0.5,
-                            type: 'system',
-                            content: `Routing you to ${agent}...`,
-                            timestamp: new Date()
-                        };
-                        setMessages(prev => [...prev, routingMessage]);
-                    }
+                    // Don't show routing message here - let backend handle it
+                    // The backend will include routing info in the response if needed
                     
                     // Set current agent for follow-up questions
                     setCurrentAgent(agent);
