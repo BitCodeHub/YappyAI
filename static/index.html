@@ -53,6 +53,11 @@
             button, input, select, textarea {
                 min-height: 44px;
             }
+            
+            /* Adjust vertical positioning on mobile */
+            .greeting-section-mobile {
+                padding-bottom: 15vh !important;
+            }
         }
         
         /* Custom scrollbar */
@@ -772,19 +777,17 @@
                         <div className="flex-1 flex flex-col w-full px-0 md:px-6 pt-14 overflow-hidden">
                             {/* Conditional layout based on whether there are messages */}
                             {messages.length === 0 ? (
-                                // Initial state - greeting and input closer together
+                                // Initial state - content centered or slightly above center
                                 <>
-                                    {/* Greeting Section - Tight spacing */}
-                                    <div className="flex-1 flex flex-col justify-end px-3 sm:px-4 md:px-6 pb-2">
+                                    {/* Greeting Section - Vertically centered with slight upward bias */}
+                                    <div className="flex-1 flex flex-col justify-center px-3 sm:px-4 md:px-6 greeting-section-mobile" style={{paddingBottom: '20vh'}}>
                                         <div className="text-center">
                                             <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-serif text-text-primary px-2 sm:px-4">
                                                 {getGreeting()}, {username}
                                             </h1>
-                                            {username !== 'there' && (
-                                                <p className="text-text-secondary mt-1 text-sm md:text-base">
-                                                    Welcome back to your AI assistant
-                                                </p>
-                                            )}
+                                            <p className="text-text-secondary mt-2 text-sm md:text-base">
+                                                Welcome back to your Multi-AI Agents
+                                            </p>
                                         </div>
                                     </div>
                                 </>
@@ -852,7 +855,7 @@
                             )}
                             
                             {/* Bottom Input Section - Fixed at bottom */}
-                            <div className="sticky bottom-0 bg-dark-bg px-2 sm:px-4 md:px-6 pb-2 md:pb-3 pt-1 border-t border-dark-tertiary/30">
+                            <div className="sticky bottom-0 bg-dark-bg px-2 sm:px-4 md:px-6 pb-2 md:pb-3 pt-2 border-t border-dark-tertiary/30">
                                 {/* Uploaded Files Display */}
                                 {uploadedFiles.length > 0 && (
                                     <div className="mb-2 sm:mb-4">
