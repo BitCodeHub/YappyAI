@@ -1464,9 +1464,18 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         # If no API key found, return error
         if not api_key:
             logger.error(f"No API key configured on server for model: {request.model_name}")
+            
+            # Check if running on Render
+            is_render = os.getenv('RENDER') == 'true'
+            
+            if is_render:
+                detail = f"Server configuration error: No {request.model_name.upper()}_API_KEY environment variable found. Please add it in Render Dashboard > Environment."
+            else:
+                detail = f"Server configuration error: No API key configured for {request.model_name}. Please check your .env file or environment variables."
+            
             raise HTTPException(
                 status_code=500, 
-                detail=f"Server configuration error: No API key configured for {request.model_name}. Please contact administrator."
+                detail=detail
             )
         
         # Get or create conversation
