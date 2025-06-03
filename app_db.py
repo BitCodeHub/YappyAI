@@ -456,7 +456,8 @@ class AgentRouter:
             'passport', 'visa', 'customs', 'airport', 'luggage',
             'beach', 'mountain', 'city break', 'weekend getaway',
             'backpack', 'resort', 'cruise', 'road trip', 'journey',
-            'plan to go', 'planning to visit', 'want to travel', 'help me plan'
+            'plan to go', 'planning to visit', 'want to travel', 'help me plan',
+            'plan a trip', 'need to plan a trip', 'planning a trip'
         ]
         
         # Browser agent patterns - web search needed
@@ -480,6 +481,7 @@ class AgentRouter:
         # Priority-based routing (order matters!)
         # 1. Check for travel patterns first (high priority)
         if any(pattern in query_lower for pattern in travel_patterns):
+            logger.info(f"Travel pattern matched for query: '{query_lower}'")
             return "travel", True
             
         # 2. Check for code patterns (most specific)
@@ -884,11 +886,17 @@ class LLMHandler:
                 routing_message = f"\n\n*[{agent_names.get(agent_type, agent_type.title() + ' Agent')} is here to help!]*\n\n"
         
         # Process with agent
+        logger.info(f"Processing with {agent_type} agent, api_key present: {bool(api_key)}")
         response = await agent.process(prompt, self, api_key, model_name, conversation_history)
         
         # Add routing message to response if applicable
         if routing_message:
             response = routing_message + response
+        
+        # Special handling for API key errors to preserve routing message
+        if "I need an API key" in response and routing_message:
+            # Ensure routing message is visible even with API key error
+            response = routing_message + "\n" + response
         
         return response, 0  # Token count would be calculated by LLM
     
@@ -1397,10 +1405,21 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         api_keys = user.api_keys or {}
         api_key = api_keys.get(request.model_name)
         
+        # Fallback to environment variables if no user API key
+        if not api_key:
+            if request.model_name == "anthropic":
+                api_key = os.getenv('CLAUDE_API_KEY')
+            elif request.model_name == "openai":
+                api_key = os.getenv('OPENAI_API_KEY')
+            elif request.model_name == "gemini":
+                api_key = os.getenv('GEMINI_API_KEY')
+            elif request.model_name == "groq":
+                api_key = os.getenv('GROQ_API_KEY')
+        
         # Debug logging
         logger.info(f"User: {username}, Model: {request.model_name}")
         logger.info(f"API keys available: {list(api_keys.keys())}")
-        logger.info(f"API key found: {'Yes' if api_key else 'No'}")
+        logger.info(f"API key found: {'Yes' if api_key else 'No'} (including env vars)")
         
         # If no API key found for the requested model, check if user has any API keys
         # and suggest they update it for the correct model
