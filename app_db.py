@@ -520,14 +520,8 @@ def override_to_openai(model_name: str, api_key: str, llm_handler) -> Tuple[str,
     if model_name != "openai":
         logger.info(f"Overriding model from {model_name} to OpenAI")
         model_name = "openai"
-        # Try to get OpenAI API key if not already using it
-        if hasattr(llm_handler, '_user_api_keys') and llm_handler._user_api_keys:
-            openai_key = llm_handler._user_api_keys.get('openai')
-            if openai_key:
-                api_key = openai_key
-            else:
-                # Fallback to environment variable
-                api_key = os.getenv('OPENAI_API_KEY') or api_key
+        # Always use environment variable for security
+        api_key = os.getenv('OPENAI_API_KEY')
     return model_name, api_key
 
 # Browser Agent Implementation
@@ -940,13 +934,7 @@ class LLMHandler:
         
         if not api_key:
             logger.warning(f"No API key found for model: {model_name}")
-            # Check if there are API keys for other models
-            from typing import Dict
-            if hasattr(self, '_user_api_keys'):
-                available_models = list(self._user_api_keys.keys()) if self._user_api_keys else []
-                if available_models:
-                    return f"I need an API key to analyze images!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key.", 0
-            return f"I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started.", 0
+            return f"Server configuration error: No API key configured for {model_name}. Please contact administrator.", 0
         
         try:
             # For OpenAI, use GPT-4 Vision
@@ -1085,11 +1073,7 @@ Which option would you like to try?"""
         """Call the appropriate LLM"""
         
         if not api_key:
-            # Check if user has any API keys configured
-            if hasattr(self, '_user_api_keys') and self._user_api_keys:
-                available_models = list(self._user_api_keys.keys())
-                return f"I need an API key to help you!\n\nI see you have API keys for: {', '.join(available_models)}\n\nBut you're trying to use: {model_name}\n\nPlease go to **Settings** and add your {model_name} API key."
-            return "I need an API key to help you!\n\n**No API keys configured yet.**\n\nPlease click the **Settings** button and add your LLM API key to get started."
+            return f"Server configuration error: No API key configured for {model_name}. Please contact administrator."
         
         try:
             if model_name == "openai" and openai:
@@ -1435,49 +1419,29 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Get API key for the model
-        api_keys = user.api_keys or {}
-        api_key = api_keys.get(request.model_name)
-        
-        # Fallback to environment variables if no user API key
-        if not api_key:
-            if request.model_name == "anthropic":
-                api_key = os.getenv('CLAUDE_API_KEY')
-            elif request.model_name == "openai":
-                api_key = os.getenv('OPENAI_API_KEY')
-            elif request.model_name == "google" or request.model_name == "gemini":
-                api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
-            elif request.model_name == "groq":
-                api_key = os.getenv('GROQ_API_KEY')
+        # Get API key from environment variables only (server-side security)
+        if request.model_name == "anthropic":
+            api_key = os.getenv('CLAUDE_API_KEY')
+        elif request.model_name == "openai":
+            api_key = os.getenv('OPENAI_API_KEY')
+        elif request.model_name == "google" or request.model_name == "gemini":
+            api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+        elif request.model_name == "groq":
+            api_key = os.getenv('GROQ_API_KEY')
+        else:
+            api_key = None
         
         # Debug logging
         logger.info(f"User: {username}, Model: {request.model_name}")
-        logger.info(f"API keys available: {list(api_keys.keys())}")
-        logger.info(f"API key found: {'Yes' if api_key else 'No'} (including env vars)")
-        if request.model_name in ["google", "gemini"] and not api_key:
-            logger.warning(f"No Google/Gemini API key found. User keys: {list(api_keys.keys())}, Env vars checked: GEMINI_API_KEY, GOOGLE_API_KEY")
+        logger.info(f"API key found from environment: {'Yes' if api_key else 'No'}")
         
-        # If no API key found for the requested model, check if user has any API keys
-        # and suggest they update it for the correct model
-        if not api_key and api_keys:
-            available_models = list(api_keys.keys())
-            logger.warning(f"No API key for {request.model_name}, but found keys for: {available_models}")
-            
-            # If user has only one API key configured, use it regardless of model name
-            if len(api_keys) == 1:
-                model_name, api_key = list(api_keys.items())[0]
-                logger.info(f"Using the only available API key from {model_name} for {request.model_name} request")
-                # Update the request model name to match the available key
-                request.model_name = model_name
-            # TEMPORARY WORKAROUND: If requesting OpenAI but have any API key, use it
-            # This helps users who accidentally saved their OpenAI key under wrong model
-            elif request.model_name == "openai" and api_keys:
-                # Try to find an OpenAI-looking key (starts with sk-)
-                for model, key in api_keys.items():
-                    if key.startswith("sk-"):
-                        logger.info(f"Using OpenAI API key from {model} model for OpenAI request")
-                        api_key = key
-                        break
+        # If no API key found, return error
+        if not api_key:
+            logger.error(f"No API key configured on server for model: {request.model_name}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Server configuration error: No API key configured for {request.model_name}. Please contact administrator."
+            )
         
         # Get or create conversation
         conv_id = request.conversation_id or str(uuid.uuid4())
@@ -1512,8 +1476,7 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
                 'content': request.file_data.content
             }
         
-        # Pass available API keys info to handler for better error messages
-        llm_handler._user_api_keys = api_keys
+        # No need to pass user API keys since we only use server environment variables
         
         response_text, tokens = await llm_handler.get_response(
             request.message,

@@ -183,17 +183,12 @@
             const [chatHistory, setChatHistory] = useState([]);
             const [currentChatId, setCurrentChatId] = useState(null);
             const [showProfileSettings, setShowProfileSettings] = useState(false);
-            const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+            // API keys are now managed server-side only
             const [showActionModal, setShowActionModal] = useState(false);
             const [selectedActionCategory, setSelectedActionCategory] = useState(null);
             const [showFAQ, setShowFAQ] = useState(false);
             const [expandedFAQ, setExpandedFAQ] = useState({});
-            const [apiKeys, setApiKeys] = useState({
-                openai: '',
-                anthropic: '',
-                google: '',
-                local: ''
-            });
+            // API keys are now managed server-side only
             
             const messagesEndRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -202,7 +197,7 @@
             useEffect(() => {
                 const token = localStorage.getItem('yappy_token');
                 const savedUsername = localStorage.getItem('yappy_username');
-                const savedApiKeys = localStorage.getItem('yappy_api_keys');
+                // API keys are now managed server-side only
                 
                 if (token && savedUsername) {
                     setIsAuthenticated(true);
@@ -211,13 +206,7 @@
                     loadChatHistory();
                 }
                 
-                if (savedApiKeys) {
-                    try {
-                        setApiKeys(JSON.parse(savedApiKeys));
-                    } catch (e) {
-                        console.error('Failed to load API keys:', e);
-                    }
-                }
+                // API keys are now managed server-side only
             }, []);
             
             // Auto scroll to bottom
@@ -493,8 +482,7 @@
                     if (isAuthenticated && authToken) {
                         const payload = {
                             message: messageText,
-                            model_name: 'openai', // Use OpenAI for all agents by default
-                            api_keys: apiKeys // Include API keys in the request
+                            model_name: 'openai' // Use OpenAI for all agents by default
                         };
                         
                         // Include file context if available
@@ -1037,15 +1025,9 @@
                                                 <div className="border-t border-dark-tertiary pt-4">
                                                     <h4 className="text-sm font-medium text-text-primary mb-3">API Keys</h4>
                                                     <p className="text-sm text-text-secondary">Configure your API keys for different providers</p>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setShowApiKeyModal(true);
-                                                            setShowProfileSettings(false);
-                                                        }}
-                                                        className="mt-2 text-orange-accent hover:text-orange-600 text-sm"
-                                                    >
-                                                        Manage API Keys →
-                                                    </button>
+                                                    <p className="mt-2 text-text-secondary text-sm">
+                                                        API keys are managed server-side for security
+                                                    </p>
                                                 </div>
                                                 
                                                 <div className="border-t border-dark-tertiary pt-4">

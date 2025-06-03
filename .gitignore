@@ -216,3 +216,8 @@ api_*.log
 frontend.log
 gemini_api.log
 .claude_auto_commit
+
+# Private files - DO NOT COMMIT
+PRIVATE_API_KEY.txt
+*_private.txt
+private_*

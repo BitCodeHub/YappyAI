@@ -1,10 +1,14 @@
-# OpenAI API Setup Instructions
+# API Key Configuration (Server-Side Only)
 
-## Important: API Key Configuration
+## Important: Security Update
 
-All agents (except Code Agent) now use OpenAI API by default. The Code Agent continues to use Claude API for enhanced coding capabilities.
+For enhanced security, all API keys are now managed exclusively on the server side. Users no longer input API keys through the UI.
 
-**Note**: You provided an OpenAI API key. Please set it as an environment variable on your deployment server for security reasons. Do not commit it to the repository.
+## Configuration
+
+All agents (except Code Agent) use OpenAI API by default. The Code Agent continues to use Claude API for enhanced coding capabilities.
+
+**Note**: The OpenAI API key you provided should be set as an environment variable on your deployment server. Do not commit it to the repository.
 
 ## Setup Instructions
 
