@@ -1104,7 +1104,7 @@ Which option would you like to try?"""
                 messages.append({"role": "user", "content": user_prompt})
                 
                 response = client.chat.completions.create(
-                    model="gpt-4o",  # Use GPT-4o model
+                    model="gpt-4o-mini",  # Use GPT-4o-mini model (fast and cost-effective)
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1000
