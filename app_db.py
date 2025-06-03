@@ -1083,16 +1083,14 @@ Which option would you like to try?"""
         
         try:
             if model_name == "openai":
-                if not openai:
-                    logger.error("OpenAI library not available - attempting to import")
-                    try:
-                        import openai as openai_module
-                        openai = openai_module
-                    except ImportError as e:
-                        logger.error(f"Failed to import openai: {e}")
-                        return "OpenAI library is not installed. Please ensure 'openai' is in requirements.txt and redeploy."
+                # Import openai locally to avoid scope issues
+                try:
+                    import openai as openai_lib
+                except ImportError as e:
+                    logger.error(f"Failed to import openai: {e}")
+                    return "OpenAI library is not installed. Please ensure 'openai' is in requirements.txt and redeploy."
                 
-                client = openai.OpenAI(api_key=api_key)
+                client = openai_lib.OpenAI(api_key=api_key)
                 
                 messages = [{"role": "system", "content": system_prompt}]
                 
