@@ -28,11 +28,17 @@ import logging
 from bs4 import BeautifulSoup
 
 # Load environment variables
-load_dotenv()
+from pathlib import Path
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Debug: Check if API keys are loaded
+logger.info(f"OPENAI_API_KEY loaded: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
+logger.info(f"CLAUDE_API_KEY loaded: {'Yes' if os.getenv('CLAUDE_API_KEY') else 'No'}")
 
 # Import optional libraries
 try:
@@ -1452,6 +1458,8 @@ async def chat(request: ChatRequest, username: str = Depends(verify_token)):
         # Debug logging
         logger.info(f"User: {username}, Model: {request.model_name}")
         logger.info(f"API key found from environment: {'Yes' if api_key else 'No'}")
+        if not api_key and request.model_name == "openai":
+            logger.error(f"OpenAI key check - env var: {os.getenv('OPENAI_API_KEY')[:10] if os.getenv('OPENAI_API_KEY') else 'None'}")
         
         # If no API key found, return error
         if not api_key:
