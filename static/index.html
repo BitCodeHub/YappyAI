@@ -493,7 +493,7 @@
                     if (isAuthenticated && authToken) {
                         const payload = {
                             message: messageText,
-                            model_name: 'google', // Use Google Gemini for all agents by default
+                            model_name: 'openai', // Use OpenAI for all agents by default
                             api_keys: apiKeys // Include API keys in the request
                         };
                         

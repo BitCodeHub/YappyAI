@@ -514,20 +514,20 @@ class AgentRouter:
         else:
             return "casual", False
 
-# Helper function to override model to Google Gemini
-def override_to_google_gemini(model_name: str, api_key: str, llm_handler) -> Tuple[str, str]:
-    """Override model to use Google Gemini for all agents except Code Agent"""
-    if model_name != "google":
-        logger.info(f"Overriding model from {model_name} to Google Gemini")
-        model_name = "google"
-        # Try to get Google API key if not already using it
+# Helper function to override model to OpenAI
+def override_to_openai(model_name: str, api_key: str, llm_handler) -> Tuple[str, str]:
+    """Override model to use OpenAI for all agents except Code Agent"""
+    if model_name != "openai":
+        logger.info(f"Overriding model from {model_name} to OpenAI")
+        model_name = "openai"
+        # Try to get OpenAI API key if not already using it
         if hasattr(llm_handler, '_user_api_keys') and llm_handler._user_api_keys:
-            google_key = llm_handler._user_api_keys.get('google')
-            if google_key:
-                api_key = google_key
+            openai_key = llm_handler._user_api_keys.get('openai')
+            if openai_key:
+                api_key = openai_key
             else:
                 # Fallback to environment variable
-                api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY') or api_key
+                api_key = os.getenv('OPENAI_API_KEY') or api_key
     return model_name, api_key
 
 # Browser Agent Implementation
@@ -541,8 +541,8 @@ class BrowserAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process query with web search"""
         
-        # Override to use Google Gemini for Browser Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for Browser Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Perform web search
         logger.info(f"Browser agent searching for: {query}")
@@ -583,8 +583,8 @@ class PlannerAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process planning requests with web search for current information"""
         
-        # Override to use Google Gemini for Planner Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for Planner Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Check if query needs current information
         needs_search = any(word in query.lower() for word in ['price', 'cost', 'weather', 'available', 'open', 'current', 'latest', 'now'])
@@ -684,8 +684,8 @@ class ResearchAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process research and learning requests with web search for current information"""
         
-        # Override to use Google Gemini for Research Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for Research Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Always search for research topics to get latest information
         logger.info(f"Research agent searching for: {query}")
@@ -724,8 +724,8 @@ class FileAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process file system requests"""
         
-        # Override to use Google Gemini for File Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for File Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Check if query needs tutorial/guide lookup
         needs_tutorial = any(word in query.lower() for word in [
@@ -774,8 +774,8 @@ class CasualAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process casual conversation with web search for factual questions"""
         
-        # Override to use Google Gemini for Casual Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for Casual Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Check if query needs factual/current information
         needs_search = any(word in query.lower() for word in ['who', 'what', 'when', 'where', 'how many', 'how much', 'news', 'current', 'latest'])
@@ -815,8 +815,8 @@ class TravelAgent:
     async def process(self, query: str, llm_handler, api_key: str, model_name: str, conversation_history: List[Dict] = None) -> str:
         """Process travel planning queries with web search"""
         
-        # Override to use Google Gemini for Travel Agent
-        model_name, api_key = override_to_google_gemini(model_name, api_key, llm_handler)
+        # Override to use OpenAI for Travel Agent
+        model_name, api_key = override_to_openai(model_name, api_key, llm_handler)
         
         # Always search for travel information
         logger.info(f"Travel agent searching for: {query}")
